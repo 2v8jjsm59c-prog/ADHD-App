@@ -36,13 +36,14 @@
   }
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; }
+html { height: 100%; }
+body { margin: 0; min-height: 100%; }
 body {
   background: var(--bg);
   color: var(--text);
   font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-tap-highlight-color: transparent;
-  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  padding-bottom: calc(84px + env(safe-area-inset-bottom));
 }
 button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
 input { font: inherit; color: inherit; }
@@ -131,6 +132,17 @@ h2 small { text-transform: none; letter-spacing: 0; }
 .startcard .sc-go { width: 100%; background: #fff; color: #3a22b8; }
 .startcard .row { display: flex; gap: 8px; margin-top: 8px; }
 .startcard .row .btn { flex: 1; background: rgba(255,255,255,.18); color: #fff; font-size: 14px; padding: 10px; }
+.sortbar { display: flex; justify-content: flex-end; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin: 0 4px -6px; }
+.sortbar select { background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; font: inherit; }
+.badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+.badge.hot { background: rgba(255,92,122,.16); color: var(--danger); }
+.badge.warm { background: rgba(255,181,71,.18); color: #c47d00; }
+.badge.good { background: rgba(0,212,166,.16); color: #00936f; }
+.rate { display: grid; grid-template-columns: 84px 1fr; gap: 6px 8px; align-items: center; margin: 4px 0 12px; font-size: 13px; color: var(--muted); }
+.seg { display: flex; background: var(--surface-2); border-radius: 10px; padding: 3px; }
+.seg button { flex: 1; padding: 6px 4px; font-size: 13px; border-radius: 8px; color: var(--muted); }
+.seg button.on { background: var(--accent); color: #fff; }
 .focus .chips { justify-content: center; }
 .focus .add-step { max-width: 380px; margin: 0 auto; }
 .focus .add-step input { background: var(--surface); padding: 13px 14px; font-size: 16px; }
@@ -169,7 +181,8 @@ nav button.focus-btn .ico { background: var(--accent); color: #fff; width: 44px;
   background: var(--text); color: var(--bg); padding: 12px 18px; border-radius: 999px; font-weight: 600;
   opacity: 0; transition: all .3s; z-index: 21; display: flex; gap: 12px; align-items: center; max-width: calc(100% - 32px);
 }
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast { pointer-events: none; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
 .toast button { color: var(--accent); font-weight: 700; }
 .xp-float { position: fixed; z-index: 22; font-weight: 800; color: var(--accent-2); font-size: 22px; pointer-events: none; animation: floatUp 1.1s ease-out forwards; }
 @keyframes floatUp { from { opacity: 1; transform: translate(-50%, 0) scale(1); } to { opacity: 0; transform: translate(-50%, -70px) scale(1.4); } }
@@ -208,6 +221,9 @@ nav button.focus-btn .ico { background: var(--accent); color: #fff; width: 44px;
       <input id="captureInput" placeholder="Brain dump: what's on your mind?" enterkeyhint="done" aria-label="New task">
       <button class="btn" type="submit">Add</button>
     </form>
+    <div class="sortbar" id="sortBar">Sort by
+      <select id="sortSelect" aria-label="Sort tasks"></select>
+    </div>
     <h2>Today <small id="todayCount"></small></h2>
     <div id="todayList"></div>
     <h2>Everything else <small id="restCount"></small></h2>
@@ -274,6 +290,32 @@ const STARTERS = [
   'Make the call',
   'Ask someone for help',
 ];
+// Optional ratings per task. Unrated counts as the middle value (2).
+const CRITERIA = [
+  { key: 'imp', label: 'Importance', opts: ['Low', 'Medium', 'High'],
+    badge: { 3: ['❗ Important', 'hot'] } },
+  { key: 'urg', label: 'Urgency', opts: ['Whenever', 'This week', 'ASAP'],
+    badge: { 3: ['⏰ ASAP', 'hot'], 2: ['📅 This week', 'warm'] } },
+  { key: 'effort', label: 'Effort', opts: ['Quick', 'Medium', 'Big'],
+    badge: { 1: ['⚡ Quick', 'good'], 3: ['🐘 Big', ''] } },
+];
+const rating = (t, k) => t[k] || 2;
+const ageDays = t => (Date.now() - t.created) / 864e5;
+// Higher score = higher in the list.
+const SORTS = {
+  smart: { label: 'Smart', score: t => 3 * rating(t, 'imp') + 3 * rating(t, 'urg') + 1.5 * (4 - rating(t, 'effort')) + Math.min(ageDays(t), 14) * 0.1 },
+  imp: { label: 'Most important', score: t => rating(t, 'imp') },
+  urg: { label: 'Most urgent', score: t => rating(t, 'urg') },
+  easy: { label: 'Easiest first', score: t => 4 - rating(t, 'effort') },
+  quickwins: { label: 'Quick wins (important + easy)', score: t => rating(t, 'imp') + (4 - rating(t, 'effort')) },
+  oldest: { label: 'Oldest first', score: t => -t.created },
+  newest: { label: 'Newest first', score: t => t.created },
+};
+function sortTasks(list, key = state.settings.sort) {
+  const primary = (SORTS[key] || SORTS.smart).score, tie = SORTS.smart.score;
+  return [...list].sort((a, b) => (primary(b) - primary(a)) || (tie(b) - tie(a)));
+}
+
 const FIRST_MOVES = [
   'Open the laptop / app',
   'Find the document',
@@ -304,7 +346,7 @@ function defaultState() {
     log: [],
     xp: 0,
     streak: { last: null, count: 0 },
-    settings: { goal: 3, sound: true },
+    settings: { goal: 3, sound: true, sort: 'smart' },
     focus: null, // { taskId, stepId, endAt, minutes, expired }
   };
 }
@@ -312,6 +354,7 @@ function defaultState() {
 let state;
 try { state = Object.assign(defaultState(), JSON.parse(localStorage.getItem(KEY)) || {}); }
 catch { state = defaultState(); }
+state.settings = Object.assign(defaultState().settings, state.settings);
 
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
@@ -541,6 +584,17 @@ function renderHeader() {
 }
 
 // ---------- Rendering: tasks ----------
+function badgesFor(t) {
+  const b = CRITERIA.map(c => c.badge[t[c.key]]).filter(Boolean);
+  return b.length ? el('div', { class: 'badges' }, b.map(([text, cls]) => el('span', { class: 'badge ' + cls, text }))) : null;
+}
+
+function setRating(taskId, key, value) {
+  const t = findTask(taskId);
+  t[key] = t[key] === value ? null : value; // tap again to clear
+  save(); render();
+}
+
 function taskCard(t) {
   const isOpen = expanded.has(t.id);
   const doneSteps = t.steps.filter(s => s.done).length;
@@ -554,7 +608,8 @@ function taskCard(t) {
       el('button', { class: 'check', 'aria-label': 'Mark done', onclick: e => completeTask(t.id, e.currentTarget) }),
       el('div', { class: 'task-title', onclick: () => { isOpen ? expanded.delete(t.id) : expanded.add(t.id); render(); }, style: 'cursor:pointer' },
         el('div', { text: t.title }),
-        el('div', { class: 'task-meta', text: meta })),
+        el('div', { class: 'task-meta', text: meta }),
+        badgesFor(t)),
       el('button', { class: 'icon-btn star' + (t.today ? ' on' : ''), title: 'Today', 'aria-label': 'Toggle today', onclick: () => toggleToday(t.id), text: t.today ? '★' : '☆' }),
       el('button', { class: 'icon-btn', title: 'Focus on this', 'aria-label': 'Focus on this', onclick: () => startFocusOn(t.id), text: '▶' }),
     ),
@@ -566,6 +621,11 @@ function taskCard(t) {
     const form = el('form', { class: 'add-step', onsubmit: e => { e.preventDefault(); focusStepInput = t.id; addStep(t.id, input.value); } },
       input, el('button', { class: 'btn', type: 'submit', text: '+' }));
     card.append(el('div', { class: 'steps' },
+      el('div', { class: 'rate' }, CRITERIA.flatMap(c => [
+        el('span', { text: c.label }),
+        el('div', { class: 'seg' }, c.opts.map((label, i) =>
+          el('button', { class: t[c.key] === i + 1 ? 'on' : '', text: label, onclick: () => setRating(t.id, c.key, i + 1) }))),
+      ])),
       t.steps.length ? null : el('div', { class: 'hint', text: 'Too big to start? Split it into steps you could do in under 15 minutes.' }),
       t.steps.map(s => el('div', { class: 'step' + (s.done ? ' done' : '') },
         el('button', { class: 'check' + (s.done ? ' done' : ''), 'aria-label': 'Toggle step', onclick: e => completeStep(t.id, s.id, e.currentTarget), text: s.done ? '✓' : '' }),
@@ -603,8 +663,10 @@ function renderStartCard() {
 let focusStepInput = null;
 function renderTasks() {
   renderStartCard();
-  const today = state.tasks.filter(t => t.today);
-  const rest = state.tasks.filter(t => !t.today);
+  const sorted = sortTasks(state.tasks);
+  const today = sorted.filter(t => t.today);
+  const rest = sorted.filter(t => !t.today);
+  $('#sortBar').hidden = state.tasks.length < 2;
   $('#todayCount').textContent = `${today.length}/${TODAY_MAX}`;
   $('#restCount').textContent = rest.length ? rest.length : '';
   $('#todayList').replaceChildren(...(today.length ? today.map(taskCard)
@@ -620,10 +682,10 @@ function renderTasks() {
 // ---------- Focus mode ----------
 let timerInt = null;
 
-// Best things to start, most likely first: today's tasks, already broken down, then oldest.
+// Today's tasks first, then in the order of the chosen sort.
 function candidates() {
-  const score = t => (t.today ? 100 : 0) + (nextStep(t) ? 20 : 0) + Math.min((Date.now() - t.created) / 864e5, 30);
-  return [...state.tasks].sort((a, b) => score(b) - score(a));
+  const sorted = sortTasks(state.tasks);
+  return [...sorted.filter(t => t.today), ...sorted.filter(t => !t.today)];
 }
 function pickForMe() {
   const c = candidates();
@@ -698,7 +760,11 @@ function stuck() {
     { label: '🤷 Not sure where to begin', cls: 'btn ghost', fn: () => { addFirstMove(t, 'Spend 2 min working out the first move'); launch(2); } },
     { label: '😬 I\'m dreading it', cls: 'btn ghost', fn: () => { toast('Just 2 minutes. You\'re allowed to stop after.'); launch(2); } },
     { label: '🥱 It\'s boring', cls: 'btn ghost', fn: () => { toast('Race the clock. Music on.'); launch(10); } },
-    { label: '🪫 No energy. Swap it', cls: 'btn ghost', fn: () => { state.focus = null; save(); startIdx++; go('tasks'); } },
+    { label: '🪫 No energy. Give me an easy one', cls: 'btn ghost', fn: () => {
+      const easy = sortTasks(state.tasks.filter(x => x.id !== t.id), 'easy')[0];
+      state.focus = null; save();
+      if (easy) { startFocusOn(easy.id); toast('Here\'s an easier one. Still counts.'); } else { startIdx++; go('tasks'); }
+    } },
   ]);
 }
 
@@ -950,6 +1016,9 @@ $('#captureForm').addEventListener('submit', e => {
   inp.focus();
   toast('Captured. Out of your head ✨');
 });
+$('#sortSelect').append(...Object.entries(SORTS).map(([k, v]) => el('option', { value: k, text: v.label })));
+$('#sortSelect').value = state.settings.sort;
+$('#sortSelect').addEventListener('change', e => { state.settings.sort = e.target.value; startIdx = 0; save(); render(); });
 $('#setGoal').addEventListener('change', e => { state.settings.goal = Math.max(1, Math.min(20, +e.target.value || 3)); save(); renderHeader(); });
 $('#setSound').addEventListener('change', e => { state.settings.sound = e.target.value === '1'; save(); });
 $('#exportBtn').addEventListener('click', () => {
@@ -965,6 +1034,8 @@ $('#importFile').addEventListener('change', async e => {
     const data = JSON.parse(await file.text());
     if (!Array.isArray(data.tasks)) throw new Error();
     state = Object.assign(defaultState(), data);
+    state.settings = Object.assign(defaultState().settings, state.settings);
+    $('#sortSelect').value = state.settings.sort;
     save(); render(); toast('Backup restored');
   } catch { toast('That file didn\'t look like a backup'); }
   e.target.value = '';
