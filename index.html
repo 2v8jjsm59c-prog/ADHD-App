@@ -124,12 +124,25 @@ h2 small { text-transform: none; letter-spacing: 0; }
 .focus-actions .row { display: flex; gap: 8px; }
 .focus-actions .row .btn { flex: 1; }
 .big-done { font-size: 20px; padding: 16px; }
+.startcard { background: linear-gradient(135deg, var(--accent), #5a3ee0); color: #fff; border-radius: 18px; padding: 16px; margin-bottom: 14px; }
+.sc-label { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; opacity: .8; }
+.sc-what { font-size: 22px; font-weight: 700; margin: 4px 0 2px; word-wrap: break-word; }
+.sc-from { font-size: 13px; opacity: .85; margin-bottom: 12px; }
+.startcard .sc-go { width: 100%; background: #fff; color: #3a22b8; }
+.startcard .row { display: flex; gap: 8px; margin-top: 8px; }
+.startcard .row .btn { flex: 1; background: rgba(255,255,255,.18); color: #fff; font-size: 14px; padding: 10px; }
+.focus .chips { justify-content: center; }
+.focus .add-step { max-width: 380px; margin: 0 auto; }
+.focus .add-step input { background: var(--surface); padding: 13px 14px; font-size: 16px; }
+.overlay.launch { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1c1640; color: #fff; text-align: center; }
+.launch p { font-size: 18px; margin: 0 0 6px; opacity: .85; }
+.launch .count { font-size: 120px; font-weight: 800; line-height: 1; }
 .nudge { background: var(--surface); border-radius: var(--radius); padding: 14px; margin: 0 auto 14px; max-width: 340px; font-size: 15px; }
 
 /* Wins */
-.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .stat { background: var(--surface); border-radius: var(--radius); padding: 14px 8px; text-align: center; }
-.stat b { display: block; font-size: 26px; }
+.stat b { display: block; font-size: 24px; }
 .stat span { font-size: 12px; color: var(--muted); }
 .log-item { display: flex; gap: 10px; padding: 10px 12px; background: var(--surface); border-radius: 12px; margin-bottom: 6px; font-size: 15px; }
 .log-item .when { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
@@ -190,6 +203,7 @@ nav button.focus-btn .ico { background: var(--accent); color: #fff; width: 44px;
 
   <!-- TASKS VIEW -->
   <section id="view-tasks">
+    <div class="startcard" id="startCard" hidden></div>
     <form class="capture" id="captureForm" autocomplete="off">
       <input id="captureInput" placeholder="Brain dump: what's on your mind?" enterkeyhint="done" aria-label="New task">
       <button class="btn" type="submit">Add</button>
@@ -209,6 +223,7 @@ nav button.focus-btn .ico { background: var(--accent); color: #fff; width: 44px;
   <section id="view-wins" hidden>
     <div class="stats">
       <div class="stat"><b id="statToday">0</b><span>wins today</span></div>
+      <div class="stat"><b id="statStarts">0</b><span>starts today</span></div>
       <div class="stat"><b id="statStreak">0</b><span>day streak</span></div>
       <div class="stat"><b id="statTotal">0</b><span>total wins</span></div>
     </div>
@@ -243,7 +258,7 @@ nav button.focus-btn .ico { background: var(--accent); color: #fff; width: 44px;
 // ---------- State ----------
 const KEY = 'tinywins.v1';
 const TODAY_MAX = 3;
-const XP = { step: 10, task: 25, effort: 3 };
+const XP = { step: 10, task: 25, effort: 3, start: 5 };
 const DURATIONS = [
   { m: 2, label: 'just start' },
   { m: 5, label: 'quick' },
@@ -258,6 +273,17 @@ const STARTERS = [
   'Send the message / email',
   'Make the call',
   'Ask someone for help',
+];
+const FIRST_MOVES = [
+  'Open the laptop / app',
+  'Find the document',
+  'Pick up the phone',
+  'Write one messy sentence',
+  'Put the thing in front of me',
+  'Stand up and go to it',
+];
+const START_PRAISE = [
+  'You started. That\'s the hard bit done.', 'Launched 🚀', 'Starting is the win. Go!', 'Engines on.',
 ];
 const PRAISE = [
   'Boom. Done.', 'That\'s momentum.', 'Look at you go!', 'One less thing in your head.',
@@ -306,7 +332,8 @@ function el(tag, attrs = {}, ...kids) {
 }
 const findTask = id => state.tasks.find(t => t.id === id);
 const nextStep = t => t.steps.find(s => !s.done);
-const winsToday = () => state.log.filter(l => l.day === dayKey()).length;
+const winsToday = () => state.log.filter(l => l.day === dayKey() && l.kind !== 'start').length;
+const startsToday = () => state.log.filter(l => l.day === dayKey() && l.kind === 'start').length;
 const level = () => Math.floor(state.xp / 100) + 1;
 
 let expanded = new Set();
@@ -339,17 +366,17 @@ function award(kind, title, parent, originEl) {
 
   floatXP(pts, originEl);
   const big = kind === 'task';
-  confetti(big ? 160 : kind === 'step' ? 70 : 25);
-  chime(big ? 'big' : kind === 'step' ? 'small' : 'soft');
+  confetti(big ? 160 : kind === 'step' ? 70 : kind === 'start' ? 45 : 25);
+  chime(big ? 'big' : kind === 'effort' ? 'soft' : 'small');
   if (navigator.vibrate) navigator.vibrate(big ? [30, 40, 60] : 25);
 
-  const hitGoal = kind !== 'effort' && before < state.settings.goal && winsToday() >= state.settings.goal;
+  const hitGoal = (kind === 'step' || kind === 'task') && before < state.settings.goal && winsToday() >= state.settings.goal;
   if (level() > oldLevel) {
     setTimeout(() => celebrate('🏆', `Level ${level()}!`, 'You levelled up. Keep stacking wins.'), 500);
   } else if (hitGoal) {
     setTimeout(() => { confetti(220); celebrate('🎯', 'Daily goal hit!', `${state.settings.goal} wins today. Anything else is bonus.`); }, 500);
   } else {
-    toast(kind === 'effort' ? pick(EFFORT_PRAISE) : pick(PRAISE));
+    toast(kind === 'effort' ? pick(EFFORT_PRAISE) : kind === 'start' ? pick(START_PRAISE) : pick(PRAISE));
   }
   renderHeader();
   const ring = $('#goalRing'); ring.classList.remove('pop'); void ring.getBBox(); ring.classList.add('pop');
@@ -395,7 +422,7 @@ function chime(type) {
   if (!state.settings.sound) return;
   try {
     actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-    const notes = { big: [523, 659, 784, 1047], small: [659, 988], soft: [523], alarm: [784, 784, 784] }[type];
+    const notes = { big: [523, 659, 784, 1047], small: [659, 988], soft: [523], tick: [880], alarm: [784, 784, 784] }[type];
     notes.forEach((f, i) => {
       const o = actx.createOscillator(), g = actx.createGain();
       o.type = type === 'alarm' ? 'square' : 'triangle';
@@ -554,8 +581,28 @@ function taskCard(t) {
   return card;
 }
 
+let startIdx = 0;
+function renderStartCard() {
+  const box = $('#startCard');
+  const c = candidates();
+  box.hidden = !c.length;
+  if (!c.length) return;
+  const t = c[startIdx % c.length];
+  const s = nextStep(t);
+  box.replaceChildren(
+    el('div', { class: 'sc-label', text: 'Your next tiny step' }),
+    el('div', { class: 'sc-what', text: s ? s.title : t.title }),
+    el('div', { class: 'sc-from', text: s ? `for: ${t.title}` : 'You\'ll pick a tiny first move, then go' }),
+    el('button', { class: 'btn big-done sc-go', text: '🚀 Start: 2 min', onclick: () => s ? launch(2, t.id) : startFocusOn(t.id) }),
+    el('div', { class: 'row' },
+      c.length > 1 ? el('button', { class: 'btn', text: '↻ Not this one', onclick: () => { startIdx++; renderStartCard(); } }) : null,
+      el('button', { class: 'btn', text: '🧱 I\'m stuck', onclick: () => { setFocus(t.id); stuck(); } })),
+  );
+}
+
 let focusStepInput = null;
 function renderTasks() {
+  renderStartCard();
   const today = state.tasks.filter(t => t.today);
   const rest = state.tasks.filter(t => !t.today);
   $('#todayCount').textContent = `${today.length}/${TODAY_MAX}`;
@@ -573,19 +620,86 @@ function renderTasks() {
 // ---------- Focus mode ----------
 let timerInt = null;
 
-function pickForMe() {
-  if (!state.tasks.length) return null;
+// Best things to start, most likely first: today's tasks, already broken down, then oldest.
+function candidates() {
   const score = t => (t.today ? 100 : 0) + (nextStep(t) ? 20 : 0) + Math.min((Date.now() - t.created) / 864e5, 30);
-  const sorted = [...state.tasks].sort((a, b) => score(b) - score(a));
-  return pick(sorted.slice(0, Math.min(3, sorted.length)));
+  return [...state.tasks].sort((a, b) => score(b) - score(a));
+}
+function pickForMe() {
+  const c = candidates();
+  return c.length ? pick(c.slice(0, 3)) : null;
+}
+
+function setFocus(taskId) {
+  const t = findTask(taskId);
+  if (!t) return;
+  if (state.focus && state.focus.taskId === taskId) return;
+  const s = nextStep(t);
+  state.focus = { taskId, stepId: s ? s.id : null, endAt: null, minutes: null, expired: false };
+  save();
 }
 
 function startFocusOn(taskId) {
-  const t = findTask(taskId);
-  if (!t) return;
-  const s = nextStep(t);
-  state.focus = { taskId, stepId: s ? s.id : null, endAt: null, minutes: null, expired: false };
-  save(); go('focus');
+  setFocus(taskId);
+  go('focus');
+}
+
+// Insert a new step just before the current one and make it the focus.
+function addFirstMove(t, title) {
+  const step = { id: uid(), title, done: false };
+  const idx = t.steps.findIndex(x => !x.done);
+  t.steps.splice(idx < 0 ? t.steps.length : idx, 0, step);
+  Object.assign(state.focus, { stepId: step.id, askFirst: false });
+  save();
+}
+
+// 3-2-1 countdown, then start the timer and reward the start itself.
+function launch(minutes, taskId) {
+  if (taskId) setFocus(taskId);
+  if (!state.focus) return;
+  state.focus.skipFirst = true;
+  state.focus.askFirst = false;
+  save();
+  if (view !== 'focus') go('focus');
+  countdown(() => {
+    startTimer(minutes);
+    if (!state.focus.started) {
+      state.focus.started = true;
+      const { t, s } = focusTarget();
+      award('start', s ? s.title : t.title, s ? t.title : null);
+    }
+  });
+}
+
+function countdown(done) {
+  const root = $('#overlayRoot');
+  let n = 3;
+  const num = el('div', { class: 'count pop', text: n });
+  root.replaceChildren(el('div', { class: 'overlay launch' }, el('p', { text: 'Hands on it…' }), num));
+  chime('tick');
+  const iv = setInterval(() => {
+    n--;
+    if (n >= 0) {
+      num.textContent = n ? n : 'GO!';
+      num.classList.remove('pop'); void num.offsetWidth; num.classList.add('pop');
+      if (n) chime('tick');
+    } else {
+      clearInterval(iv);
+      root.replaceChildren();
+      done();
+    }
+  }, 700);
+}
+
+function stuck() {
+  const { t } = focusTarget();
+  celebrate('🧱', 'What\'s getting in the way?', 'Pick the closest one. There are no wrong answers.', [
+    { label: '🐘 It feels too big', cls: 'btn ghost', fn: () => { state.focus.askFirst = true; save(); go('focus'); } },
+    { label: '🤷 Not sure where to begin', cls: 'btn ghost', fn: () => { addFirstMove(t, 'Spend 2 min working out the first move'); launch(2); } },
+    { label: '😬 I\'m dreading it', cls: 'btn ghost', fn: () => { toast('Just 2 minutes. You\'re allowed to stop after.'); launch(2); } },
+    { label: '🥱 It\'s boring', cls: 'btn ghost', fn: () => { toast('Race the clock. Music on.'); launch(10); } },
+    { label: '🪫 No energy. Swap it', cls: 'btn ghost', fn: () => { state.focus = null; save(); startIdx++; go('tasks'); } },
+  ]);
 }
 
 function startTimer(minutes) {
@@ -628,7 +742,7 @@ function focusDone(originEl) {
       save(); renderFocus();
       setTimeout(() => celebrate('🎉', 'Every step done!', `Is "${t.title}" finished?`, [
         { label: 'Yes! Tick it off', cls: 'btn green', fn: () => { state.focus = null; completeTask(t.id); renderFocus(); } },
-        { label: 'Needs another step', cls: 'btn ghost', fn: () => { state.focus = null; expanded.add(t.id); go('tasks'); } },
+        { label: 'Not yet. What\'s next?', cls: 'btn ghost', fn: () => { state.focus = { taskId: t.id, stepId: null, endAt: null, minutes: null, expired: false, askFirst: true }; save(); renderFocus(); } },
       ]), 600);
     }
   } else {
@@ -687,15 +801,41 @@ function renderFocus() {
     el('h1', { class: 'now', text: nowText }),
   ];
 
+  if (!f.endAt && (f.askFirst || (!s && !t.steps.length && !f.skipFirst))) {
+    // Vague tasks are hard to start: get a concrete first physical action.
+    const inp = el('input', { placeholder: 'e.g. open the email draft', enterkeyhint: 'go', 'aria-label': 'First move' });
+    const goFirst = title => {
+      title = title.trim();
+      if (!title) { inp.focus(); return; }
+      addFirstMove(t, title);
+      launch(2);
+    };
+    const question = !s && t.steps.some(x => x.done) ? 'Nice. What\'s the next physical move?'
+      : f.askFirst ? 'Smaller. What\'s the very first physical move?' : 'What\'s the very first physical move?';
+    root.replaceChildren(
+      el('div', { class: 'parent', text: t.title }),
+      el('h1', { class: 'now', text: question }),
+      el('p', { class: 'hint', text: 'Something you could do in 2 minutes without thinking. Smaller than feels sensible.' }),
+      el('form', { class: 'add-step', onsubmit: e => { e.preventDefault(); goFirst(inp.value); } },
+        inp, el('button', { class: 'btn', type: 'submit', text: '🚀 Go' })),
+      el('div', { class: 'chips' }, FIRST_MOVES.map(m => el('button', { class: 'chip', text: m, onclick: () => goFirst(m) }))),
+      el('div', { class: 'focus-actions', style: 'margin-top:18px' },
+        el('button', { class: 'btn ghost', text: 'Skip. Just start on the whole thing', onclick: () => { f.skipFirst = true; f.askFirst = false; save(); renderFocus(); } })),
+    );
+    return;
+  }
+
   if (!f.endAt) {
-    // choose a time window
     kids.push(
-      el('p', { class: 'hint', text: 'How long will you give it? You can stop when the timer ends, no guilt.' }),
-      el('div', { class: 'durations' }, DURATIONS.map(d =>
-        el('button', { onclick: () => startTimer(d.m) }, el('b', { text: d.m + 'm' }), el('span', { text: d.label })))),
       el('div', { class: 'focus-actions' },
-        !s && !t.steps.length ? el('button', { class: 'btn ghost', text: '🪓 Too big? Break it down first', onclick: focusSplit }) : null,
-        el('button', { class: 'btn green', text: '✓ Already done it', onclick: e => focusDone(e.currentTarget) }),
+        el('button', { class: 'btn big-done', text: '🚀 Just start: 2 min', onclick: () => launch(2) })),
+      el('p', { class: 'hint', text: 'or commit to longer:' }),
+      el('div', { class: 'durations' }, DURATIONS.filter(d => d.m > 2).map(d =>
+        el('button', { onclick: () => launch(d.m) }, el('b', { text: d.m + 'm' }), el('span', { text: d.label })))),
+      el('div', { class: 'focus-actions' },
+        el('div', { class: 'row' },
+          el('button', { class: 'btn ghost', text: '🧱 I\'m stuck', onclick: stuck }),
+          el('button', { class: 'btn ghost', text: '✓ Already done', onclick: e => focusDone(e.currentTarget) })),
         el('button', { class: 'btn ghost', text: '🎲 Something else', onclick: () => { state.focus = null; save(); renderFocus(); } })),
     );
     root.replaceChildren(...kids);
@@ -723,7 +863,19 @@ function renderFocus() {
       clearInterval(timerInt);
       tText.textContent = '0:00'; tSub.textContent = 'time\'s up';
       tr.setAttribute('stroke-dashoffset', C); tr.setAttribute('stroke', 'var(--warn)');
-      if (!f.expired) { f.expired = true; save(); chime('alarm'); if (navigator.vibrate) navigator.vibrate([200, 100, 200]); }
+      const justStarted = f.minutes === 2;
+      if (!f.expired) { f.expired = true; save(); chime(justStarted ? 'small' : 'alarm'); if (navigator.vibrate) navigator.vibrate([200, 100, 200]); }
+      if (justStarted) {
+        tSub.textContent = 'you started!';
+        actions.replaceChildren(
+          el('div', { class: 'nudge', text: '🚀 That was the hard part. You\'ve got momentum now. Ride it?' }),
+          el('button', { class: 'btn big-done', text: 'Keep going: 10 min', onclick: () => startTimer(10) }),
+          el('div', { class: 'row' },
+            el('button', { class: 'btn green', text: '✓ Done it!', onclick: e => focusDone(e.currentTarget) }),
+            el('button', { class: 'btn ghost', text: 'Stop here', onclick: () => { focusStop(false); toast('Fine to stop. You started, and that\'s logged.'); } })),
+        );
+        return;
+      }
       actions.replaceChildren(
         el('div', { class: 'nudge', text: 'Time\'s up! How did it go?' }),
         el('button', { class: 'btn green big-done', text: '✓ Done it!', onclick: e => focusDone(e.currentTarget) }),
@@ -743,7 +895,7 @@ function renderFocus() {
     el('button', { class: 'btn green big-done', text: '✓ Done!', onclick: e => focusDone(e.currentTarget) }),
     el('div', { class: 'row' },
       el('button', { class: 'btn ghost', text: '🪓 Too big', onclick: focusSplit }),
-      el('button', { class: 'btn ghost', text: 'Stop', onclick: () => focusStop(Date.now() - (f.endAt - total) > 60000) })),
+      el('button', { class: 'btn ghost', text: 'Stop', onclick: () => focusStop(false) })),
   );
   update();
   if (f.endAt > Date.now()) timerInt = setInterval(update, 250);
@@ -753,13 +905,14 @@ function renderFocus() {
 function renderWins() {
   $('#statToday').textContent = winsToday();
   $('#statStreak').textContent = currentStreak();
-  $('#statTotal').textContent = state.log.length;
+  $('#statStarts').textContent = startsToday();
+  $('#statTotal').textContent = state.log.filter(l => l.kind !== 'start').length;
   $('#setGoal').value = state.settings.goal;
   $('#setSound').value = state.settings.sound ? '1' : '0';
   const items = state.log.slice(0, 60);
   $('#logList').replaceChildren(...(items.length ? items.map(l => el('div', { class: 'log-item' },
-    el('span', { text: l.kind === 'task' ? '🏁' : '✅' }),
-    el('div', {}, el('div', { text: l.title }), l.parent ? el('div', { class: 'sub', text: l.parent }) : null),
+    el('span', { text: l.kind === 'task' ? '🏁' : l.kind === 'start' ? '🚀' : '✅' }),
+    el('div', {}, el('div', { text: l.kind === 'start' ? `Started: ${l.title}` : l.title }), l.parent ? el('div', { class: 'sub', text: l.parent }) : null),
     el('span', { class: 'when', text: when(l.at) })))
     : [el('div', { class: 'empty', text: 'Your wins will show up here. Every tick counts.' })]));
 }
