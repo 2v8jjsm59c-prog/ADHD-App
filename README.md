@@ -25,6 +25,8 @@ The app is designed mainly around **starting**, because that's where things get 
    - **Quick wins**: important *and* easy
    - Oldest / Newest
 
+   While a task's box is open, changing its ratings won't move it. The list re-sorts when you close the box.
+
    The Start card follows your sort, so choosing "Easiest first" on a low-energy evening makes it suggest easy tasks. In "I'm stuck", **No energy** jumps straight to your easiest task.
 9. **Pick 3 for today.** Star ☆ up to three tasks; these come first on the Start card.
 10. **Celebrate.** Confetti, chimes, XP, a daily-goal ring, a streak, levels, and a **Done list** that shows what you started (🚀) and finished (✅ 🏁).

@@ -753,7 +753,24 @@ function badgesFor(t) {
 function setRating(taskId, key, value) {
   const t = findTask(taskId);
   t[key] = t[key] === value ? null : value; // tap again to clear
+  freezeFor = taskId; // don't jump the list around while this box is open
   save(); render();
+}
+
+// While a task's ratings are being changed, keep the list in the order it had
+// before; re-sort once that task's box is closed (or the sort is changed).
+let freezeFor = null, lastOrder = [];
+function orderedTasks() {
+  let sorted = sortTasks(state.tasks);
+  if (freezeFor && !(expanded.has(freezeFor) && findTask(freezeFor))) freezeFor = null;
+  if (freezeFor) {
+    const pos = new Map(lastOrder.map((id, i) => [id, i]));
+    const fresh = sorted.filter(t => !pos.has(t.id)); // newly added tasks go on top
+    const known = state.tasks.filter(t => pos.has(t.id)).sort((a, b) => pos.get(a.id) - pos.get(b.id));
+    sorted = [...fresh, ...known];
+  }
+  lastOrder = sorted.map(t => t.id);
+  return sorted;
 }
 
 // Inline editing of a task or step title. Enter or tapping away saves; Escape cancels.
@@ -858,7 +875,7 @@ function renderTasks() {
   const searching = words.length > 0;
   $('#startCard').hidden = true;
   if (!searching) renderStartCard();
-  const sorted = sortTasks(searching ? state.tasks.filter(t => matchesTask(t, words)) : state.tasks);
+  const sorted = orderedTasks().filter(t => !searching || matchesTask(t, words));
   const today = sorted.filter(t => t.today);
   const rest = sorted.filter(t => !t.today);
   $('#sortBar').hidden = state.tasks.length < 2;
@@ -1248,7 +1265,7 @@ $('#captureForm').addEventListener('submit', e => {
 });
 $('#sortSelect').append(...Object.entries(SORTS).map(([k, v]) => el('option', { value: k, text: v.label })));
 $('#sortSelect').value = state.settings.sort;
-$('#sortSelect').addEventListener('change', e => { state.settings.sort = e.target.value; startIdx = 0; save(); render(); });
+$('#sortSelect').addEventListener('change', e => { state.settings.sort = e.target.value; startIdx = 0; freezeFor = null; save(); render(); });
 $('#setGoal').addEventListener('change', e => { state.settings.goal = Math.max(1, Math.min(20, +e.target.value || 3)); save(); renderHeader(); });
 $('#setSound').addEventListener('change', e => { state.settings.sound = e.target.value === '1'; save(); });
 $('#exportBtn').addEventListener('click', () => {
