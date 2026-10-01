@@ -93,6 +93,9 @@ h2 small { text-transform: none; letter-spacing: 0; }
 .icon-btn { padding: 6px 8px; border-radius: 10px; color: var(--muted); font-size: 18px; line-height: 1; }
 .icon-btn:hover { background: var(--surface-2); color: var(--text); }
 .star.on { color: var(--warn); }
+.edit-input { width: 100%; background: var(--surface-2); border: 1px solid var(--accent); border-radius: 8px; padding: 6px 8px; font: inherit; color: var(--text); outline: none; }
+.step .edit-input { font-size: 15px; }
+.step-title { cursor: text; }
 .mini-prog { height: 3px; background: var(--surface-2); }
 .mini-prog i { display: block; height: 100%; background: var(--accent-2); transition: width .4s; }
 .steps { border-top: 1px solid var(--line); padding: 8px 12px 12px; background: var(--surface); }
@@ -753,6 +756,33 @@ function setRating(taskId, key, value) {
   save(); render();
 }
 
+// Inline editing of a task or step title. Enter or tapping away saves; Escape cancels.
+let editing = null; // { taskId, stepId } (stepId null = the task itself)
+const isEditing = (taskId, stepId = null) => editing && editing.taskId === taskId && editing.stepId === stepId;
+function startEdit(taskId, stepId = null) {
+  editing = { taskId, stepId };
+  expanded.add(taskId);
+  render();
+  const inp = document.querySelector('.edit-input');
+  if (inp) { inp.focus(); inp.select(); }
+}
+function editField(value, onSave) {
+  let finished = false;
+  const finish = commit => {
+    if (finished) return;
+    finished = true;
+    const v = inp.value.trim();
+    editing = null;
+    if (commit && v && v !== value) { onSave(v.slice(0, 200)); save(); toast('Updated'); }
+    render();
+  };
+  const inp = el('input', { class: 'edit-input', value, enterkeyhint: 'done', 'aria-label': 'Edit text',
+    onclick: e => e.stopPropagation(),
+    onkeydown: e => { if (e.key === 'Enter') { e.preventDefault(); finish(true); } if (e.key === 'Escape') finish(false); },
+    onblur: () => finish(true) });
+  return inp;
+}
+
 function taskCard(t) {
   const isOpen = expanded.has(t.id);
   const doneSteps = t.steps.filter(s => s.done).length;
@@ -766,8 +796,8 @@ function taskCard(t) {
   const card = el('div', { class: 'task' },
     el('div', { class: 'task-row' },
       el('button', { class: 'check', 'aria-label': 'Mark done', onclick: e => completeTask(t.id, e.currentTarget) }),
-      el('div', { class: 'task-title', onclick: () => { isOpen ? expanded.delete(t.id) : expanded.add(t.id); render(); }, style: 'cursor:pointer' },
-        el('div', {}, ...hl(t.title, words)),
+      el('div', { class: 'task-title', onclick: () => { if (isEditing(t.id)) return; isOpen ? expanded.delete(t.id) : expanded.add(t.id); render(); }, style: 'cursor:pointer' },
+        isEditing(t.id) ? editField(t.title, v => { t.title = v; }) : el('div', {}, ...hl(t.title, words)),
         el('div', { class: 'task-meta' }, ...meta),
         badgesFor(t)),
       el('button', { class: 'icon-btn star' + (t.today ? ' on' : ''), title: 'Today', 'aria-label': 'Toggle today', onclick: () => toggleToday(t.id), text: t.today ? '★' : '☆' }),
@@ -786,15 +816,17 @@ function taskCard(t) {
         el('div', { class: 'seg' }, c.opts.map((label, i) =>
           el('button', { class: t[c.key] === i + 1 ? 'on' : '', text: label, onclick: () => setRating(t.id, c.key, i + 1) }))),
       ])),
-      t.steps.length ? null : el('div', { class: 'hint', text: 'Too big to start? Split it into steps you could do in under 15 minutes.' }),
+      el('div', { class: 'hint', text: t.steps.length ? 'Tap a step to edit it.' : 'Too big to start? Split it into steps you could do in under 15 minutes.' }),
       t.steps.map(s => el('div', { class: 'step' + (s.done ? ' done' : '') },
         el('button', { class: 'check' + (s.done ? ' done' : ''), 'aria-label': 'Toggle step', onclick: e => completeStep(t.id, s.id, e.currentTarget), text: s.done ? '✓' : '' }),
-        el('span', { class: 'step-title' }, ...hl(s.title)),
+        isEditing(t.id, s.id) ? editField(s.title, v => { s.title = v; })
+          : el('span', { class: 'step-title', title: 'Tap to edit', onclick: () => startEdit(t.id, s.id) }, ...hl(s.title)),
         el('button', { class: 'icon-btn', 'aria-label': 'Delete step', onclick: () => deleteStep(t.id, s.id), text: '×' }))),
       form,
       el('div', { class: 'chips' }, STARTERS.map(s => el('button', { class: 'chip', text: '+ ' + s, onclick: () => addStep(t.id, s) }))),
       el('div', { class: 'task-actions' },
         el('button', { class: 'btn', text: '▶ Focus', onclick: () => startFocusOn(t.id) }),
+        el('button', { class: 'btn ghost', text: '✏️ Edit', onclick: () => startEdit(t.id) }),
         el('button', { class: 'btn ghost', text: 'Delete', onclick: () => deleteTask(t.id) })),
     ));
   }
