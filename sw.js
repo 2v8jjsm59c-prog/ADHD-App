@@ -1,5 +1,5 @@
 // Offline support: serve from network when possible, fall back to cache.
-const CACHE = 'tinywins-v4';
+const CACHE = 'tinywins-v5';
 const FILES = ['./', 'index.html', 'manifest.json', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {

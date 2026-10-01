@@ -134,6 +134,13 @@ h2 small { text-transform: none; letter-spacing: 0; }
 .startcard .row { display: flex; gap: 8px; margin-top: 8px; }
 .startcard .row .btn { flex: 1; background: rgba(255,255,255,.18); color: #fff; font-size: 14px; padding: 10px; }
 .listbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: -8px 4px -6px; min-height: 34px; }
+.searchbar { display: flex; gap: 8px; margin: -6px 0 14px; }
+.searchbar input { flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); padding: 11px 14px; outline: none; font-size: 16px; }
+.searchbar .btn { padding: 10px 14px; }
+.listbar .left { display: flex; gap: 14px; }
+.linkbtn, .sortbar { white-space: nowrap; }
+.sortbar select { max-width: 150px; }
+mark { background: rgba(255,181,71,.45); color: inherit; border-radius: 3px; padding: 0 1px; }
 .linkbtn { color: var(--accent); font-size: 14px; font-weight: 600; padding: 6px 0; }
 .sortbar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 .overlay .card.bulk { text-align: left; max-width: 480px; max-height: calc(100vh - 32px); overflow: auto; }
@@ -234,16 +241,27 @@ nav button.focus-btn .ico { background: var(--accent); color: #fff; width: 44px;
       <input id="captureInput" placeholder="Brain dump: what's on your mind?" enterkeyhint="done" aria-label="New task">
       <button class="btn" type="submit">Add</button>
     </form>
+    <div class="searchbar" id="searchBar" hidden>
+      <input id="searchInput" type="text" placeholder="Search tasks, steps and done items" aria-label="Search" enterkeyhint="search" autocomplete="off">
+      <button class="btn ghost" id="searchClose" type="button" aria-label="Close search">✕</button>
+    </div>
     <div class="listbar">
-      <button class="linkbtn" id="bulkBtn" type="button">📋 Paste a list</button>
+      <div class="left">
+        <button class="linkbtn" id="bulkBtn" type="button">📋 Paste a list</button>
+        <button class="linkbtn" id="searchBtn" type="button">🔍 Search</button>
+      </div>
       <div class="sortbar" id="sortBar">Sort by
         <select id="sortSelect" aria-label="Sort tasks"></select>
       </div>
     </div>
-    <h2>Today <small id="todayCount"></small></h2>
+    <h2 id="todayHead">Today <small id="todayCount"></small></h2>
     <div id="todayList"></div>
-    <h2>Everything else <small id="restCount"></small></h2>
+    <h2 id="restHead">Everything else <small id="restCount"></small></h2>
     <div id="restList"></div>
+    <div id="doneResults" hidden>
+      <h2>Already done <small id="doneCount"></small></h2>
+      <div id="doneList"></div>
+    </div>
   </section>
 
   <!-- FOCUS VIEW -->
@@ -694,6 +712,36 @@ function renderHeader() {
 }
 
 // ---------- Rendering: tasks ----------
+// ---------- Search ----------
+let query = '';
+const norm = str => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const queryWords = () => norm(query).split(/\s+/).filter(Boolean);
+// Every word must appear somewhere in the task's title or its steps.
+function matchesTask(t, words) {
+  const hay = norm([t.title, ...t.steps.map(x => x.title)].join(' '));
+  return words.every(w => hay.includes(w));
+}
+// Text with matched words wrapped in <mark>, built as nodes (no innerHTML).
+function hl(text, words = queryWords()) {
+  if (!words.length) return [text];
+  const n = norm(text);
+  const hits = [];
+  for (const w of words) for (let i = n.indexOf(w); i >= 0; i = n.indexOf(w, i + 1)) hits.push([i, i + w.length]);
+  if (!hits.length) return [text];
+  hits.sort((a, b) => a[0] - b[0]);
+  const out = [];
+  let pos = 0;
+  for (const [a, b] of hits) {
+    if (b <= pos) continue;
+    const start = Math.max(a, pos);
+    if (start > pos) out.push(text.slice(pos, start));
+    out.push(el('mark', { text: text.slice(start, b) }));
+    pos = b;
+  }
+  if (pos < text.length) out.push(text.slice(pos));
+  return out;
+}
+
 function badgesFor(t) {
   const b = CRITERIA.map(c => c.badge[t[c.key]]).filter(Boolean);
   return b.length ? el('div', { class: 'badges' }, b.map(([text, cls]) => el('span', { class: 'badge ' + cls, text }))) : null;
@@ -709,16 +757,18 @@ function taskCard(t) {
   const isOpen = expanded.has(t.id);
   const doneSteps = t.steps.filter(s => s.done).length;
   const ns = nextStep(t);
-  const meta = t.steps.length
-    ? `${doneSteps}/${t.steps.length} steps${ns ? ' · next: ' + ns.title : ''}`
-    : 'Tap to break it down';
+  const words = queryWords();
+  const titleHit = words.length && words.some(w => norm(t.title).includes(w));
+  const stepHit = words.length && !titleHit && t.steps.find(x => words.some(w => norm(x.title).includes(w)));
+  const meta = stepHit ? ['Step: ', ...hl(stepHit.title, words)]
+    : [t.steps.length ? `${doneSteps}/${t.steps.length} steps${ns ? ' · next: ' + ns.title : ''}` : 'Tap to break it down'];
 
   const card = el('div', { class: 'task' },
     el('div', { class: 'task-row' },
       el('button', { class: 'check', 'aria-label': 'Mark done', onclick: e => completeTask(t.id, e.currentTarget) }),
       el('div', { class: 'task-title', onclick: () => { isOpen ? expanded.delete(t.id) : expanded.add(t.id); render(); }, style: 'cursor:pointer' },
-        el('div', { text: t.title }),
-        el('div', { class: 'task-meta', text: meta }),
+        el('div', {}, ...hl(t.title, words)),
+        el('div', { class: 'task-meta' }, ...meta),
         badgesFor(t)),
       el('button', { class: 'icon-btn star' + (t.today ? ' on' : ''), title: 'Today', 'aria-label': 'Toggle today', onclick: () => toggleToday(t.id), text: t.today ? '★' : '☆' }),
       el('button', { class: 'icon-btn', title: 'Focus on this', 'aria-label': 'Focus on this', onclick: () => startFocusOn(t.id), text: '▶' }),
@@ -739,7 +789,7 @@ function taskCard(t) {
       t.steps.length ? null : el('div', { class: 'hint', text: 'Too big to start? Split it into steps you could do in under 15 minutes.' }),
       t.steps.map(s => el('div', { class: 'step' + (s.done ? ' done' : '') },
         el('button', { class: 'check' + (s.done ? ' done' : ''), 'aria-label': 'Toggle step', onclick: e => completeStep(t.id, s.id, e.currentTarget), text: s.done ? '✓' : '' }),
-        el('span', { class: 'step-title', text: s.title }),
+        el('span', { class: 'step-title' }, ...hl(s.title)),
         el('button', { class: 'icon-btn', 'aria-label': 'Delete step', onclick: () => deleteStep(t.id, s.id), text: '×' }))),
       form,
       el('div', { class: 'chips' }, STARTERS.map(s => el('button', { class: 'chip', text: '+ ' + s, onclick: () => addStep(t.id, s) }))),
@@ -772,16 +822,33 @@ function renderStartCard() {
 
 let focusStepInput = null;
 function renderTasks() {
-  renderStartCard();
-  const sorted = sortTasks(state.tasks);
+  const words = queryWords();
+  const searching = words.length > 0;
+  $('#startCard').hidden = true;
+  if (!searching) renderStartCard();
+  const sorted = sortTasks(searching ? state.tasks.filter(t => matchesTask(t, words)) : state.tasks);
   const today = sorted.filter(t => t.today);
   const rest = sorted.filter(t => !t.today);
   $('#sortBar').hidden = state.tasks.length < 2;
-  $('#todayCount').textContent = `${today.length}/${TODAY_MAX}`;
+  $('#todayCount').textContent = searching ? (today.length || '') : `${today.length}/${TODAY_MAX}`;
   $('#restCount').textContent = rest.length ? rest.length : '';
+  const noMatch = el('div', { class: 'empty', text: 'No tasks match.' });
+  // While searching, hide empty sections; if nothing matches at all, say so once.
+  $('#todayHead').hidden = $('#todayList').hidden = searching && !today.length;
+  $('#restHead').hidden = $('#restList').hidden = searching && !rest.length && !!today.length;
   $('#todayList').replaceChildren(...(today.length ? today.map(taskCard)
-    : [el('div', { class: 'empty', text: state.tasks.length ? 'Star ☆ up to 3 things that matter today.' : 'Nothing here yet. Dump everything above, no sorting needed.' })]));
-  $('#restList').replaceChildren(...(rest.length ? rest.map(taskCard) : [el('div', { class: 'empty', text: 'Inbox zero. Nice.' })]));
+    : [searching ? noMatch : el('div', { class: 'empty', text: state.tasks.length ? 'Star ☆ up to 3 things that matter today.' : 'Nothing here yet. Dump everything above, no sorting needed.' })]));
+  $('#restList').replaceChildren(...(rest.length ? rest.map(taskCard) : [searching ? noMatch.cloneNode(true) : el('div', { class: 'empty', text: 'Inbox zero. Nice.' })]));
+
+  // While searching, also show matching finished items ("did I already do that?").
+  const done = searching ? state.log.filter(l => l.kind !== 'start' && words.every(w => norm(l.title + ' ' + (l.parent || '')).includes(w))) : [];
+  $('#doneResults').hidden = !searching || !done.length;
+  $('#doneCount').textContent = done.length ? done.length : '';
+  $('#doneList').replaceChildren(...(done.length ? done.slice(0, 30).map(l => el('div', { class: 'log-item' },
+    el('span', { text: l.kind === 'task' ? '🏁' : '✅' }),
+    el('div', {}, el('div', {}, ...hl(l.title, words)), l.parent ? el('div', { class: 'sub' }, ...hl(l.parent, words)) : null),
+    el('span', { class: 'when', text: when(l.at) })))
+    : [el('div', { class: 'empty', text: 'Nothing finished matches.' })]));
   if (focusStepInput) {
     const inp = document.querySelector(`.add-step input[data-task="${focusStepInput}"]`);
     if (inp) inp.focus();
@@ -1118,6 +1185,21 @@ function render() {
 // ---------- Wiring ----------
 document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => go(b.dataset.view)));
 $('#bulkBtn').addEventListener('click', () => openBulk());
+function closeSearch() {
+  query = '';
+  $('#searchInput').value = '';
+  $('#searchBar').hidden = true;
+  $('#searchBtn').hidden = false;
+  render();
+}
+$('#searchBtn').addEventListener('click', () => {
+  $('#searchBar').hidden = false;
+  $('#searchBtn').hidden = true;
+  $('#searchInput').focus();
+});
+$('#searchInput').addEventListener('input', e => { query = e.target.value; render(); });
+$('#searchInput').addEventListener('keydown', e => { if (e.key === 'Escape') closeSearch(); if (e.key === 'Enter') e.target.blur(); });
+$('#searchClose').addEventListener('click', closeSearch);
 // Pasting several lines into the single-line box opens the list importer instead.
 $('#captureInput').addEventListener('paste', e => {
   const text = (e.clipboardData || window.clipboardData).getData('text');
