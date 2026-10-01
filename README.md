@@ -7,6 +7,7 @@ A simple to-do app that runs on your phone. It's built around the hard parts of 
 The app is designed mainly around **starting**, because that's where things get stuck.
 
 1. **Brain dump.** Type anything into the box and hit Add. Don't sort it, just get it out of your head.
+   - **Got a list already?** Tap **📋 Paste a list** (or just paste several lines into the box). Each line becomes a task, and indented lines, or bullets under a heading, become steps. Bullets, numbers and checkboxes are tidied up, and ticked items are skipped. A preview shows exactly what will be added. You can also pick a `.txt`, `.md` or `.csv` file (first column only).
 2. **The purple card picks for you.** The top of the screen always shows *one* next tiny step, with a big **🚀 Start: 2 min** button. You don't have to decide what to do; tap "Not this one" to see a different task.
 3. **Vague tasks get a first physical move.** If a task has no steps yet, the app asks *"What's the very first physical move?"* (open the laptop, find the document, pick up the phone…) and then launches it.
 4. **3-2-1, go.** A short countdown and then a 2-minute timer. Starting earns XP and counts towards your streak, so you're rewarded for starting, not just for finishing.

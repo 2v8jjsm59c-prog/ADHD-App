@@ -74,6 +74,7 @@ input { font: inherit; color: inherit; }
 .btn.ghost { background: var(--surface-2); color: var(--text); }
 .btn.green { background: var(--accent-2); color: #062b23; }
 .btn:active { transform: scale(.97); }
+.btn:disabled { opacity: .5; }
 
 /* Sections & tasks */
 h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 4px 8px; display: flex; justify-content: space-between; }
@@ -132,7 +133,19 @@ h2 small { text-transform: none; letter-spacing: 0; }
 .startcard .sc-go { width: 100%; background: #fff; color: #3a22b8; }
 .startcard .row { display: flex; gap: 8px; margin-top: 8px; }
 .startcard .row .btn { flex: 1; background: rgba(255,255,255,.18); color: #fff; font-size: 14px; padding: 10px; }
-.sortbar { display: flex; justify-content: flex-end; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin: 0 4px -6px; }
+.listbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: -8px 4px -6px; min-height: 34px; }
+.linkbtn { color: var(--accent); font-size: 14px; font-weight: 600; padding: 6px 0; }
+.sortbar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.overlay .card.bulk { text-align: left; max-width: 480px; max-height: calc(100vh - 32px); overflow: auto; }
+.bulk h3 { text-align: center; }
+.bulk textarea { width: 100%; min-height: 150px; background: var(--surface-2); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 12px; font: inherit; font-size: 16px; resize: vertical; outline: none; }
+.bulk textarea:focus { border-color: var(--accent); }
+.bulk .hint { margin: 0 0 10px; }
+.bulk .preview { margin: 10px 0 4px; font-size: 14px; max-height: 180px; overflow: auto; }
+.bulk .preview .pt { padding: 3px 0; }
+.bulk .preview .ps { padding: 2px 0 2px 18px; color: var(--muted); }
+.bulk .count { font-size: 13px; color: var(--muted); }
+.bulk .file { display: inline-block; margin-top: 8px; }
 .sortbar select { background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; font: inherit; }
 .badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
 .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
@@ -221,8 +234,11 @@ nav button.focus-btn .ico { background: var(--accent); color: #fff; width: 44px;
       <input id="captureInput" placeholder="Brain dump: what's on your mind?" enterkeyhint="done" aria-label="New task">
       <button class="btn" type="submit">Add</button>
     </form>
-    <div class="sortbar" id="sortBar">Sort by
-      <select id="sortSelect" aria-label="Sort tasks"></select>
+    <div class="listbar">
+      <button class="linkbtn" id="bulkBtn" type="button">📋 Paste a list</button>
+      <div class="sortbar" id="sortBar">Sort by
+        <select id="sortSelect" aria-label="Sort tasks"></select>
+      </div>
     </div>
     <h2>Today <small id="todayCount"></small></h2>
     <div id="todayList"></div>
@@ -513,6 +529,100 @@ function addTask(title) {
   if (!title) return;
   state.tasks.unshift({ id: uid(), title, created: Date.now(), today: false, steps: [] });
   save(); render();
+}
+
+// Turn pasted text into tasks. One task per line; lines indented under a task
+// (or bulleted under an un-bulleted heading) become its steps. Ticked items are skipped.
+const BULLET = /^(?:[-*•◦▪‣–—+]|\d{1,3}[.)]|[a-z][.)](?=\s)|\[[ xX✓✔]?\]|[☐☑☒✓✔✗○●□■◯⬜✅])\s*/;
+const DONE_MARK = /^(?:\[[xX✓✔]\]|[☑☒✓✔✅])/;
+function parseList(text) {
+  const out = [];
+  let current = null, currentIndent = 0, currentBulleted = false;
+  for (const raw of text.split(/\r?\n/)) {
+    if (!raw.trim()) continue;
+    const indent = raw.match(/^[ \t\u00a0]*/)[0].replace(/\t/g, '    ').length;
+    let line = raw.trim(), bulleted = false, done = false;
+    for (let i = 0; i < 3 && BULLET.test(line); i++) { // handles "- [ ] task"
+      if (DONE_MARK.test(line)) done = true;
+      line = line.replace(BULLET, '');
+      bulleted = true;
+    }
+    line = line.replace(/:$/, '').trim().slice(0, 200);
+    if (!line || done) continue;
+    const isStep = current && (indent > currentIndent || (bulleted && !currentBulleted));
+    if (isStep) current.steps.push(line);
+    else {
+      current = { title: line, steps: [] };
+      currentIndent = indent; currentBulleted = bulleted;
+      out.push(current);
+    }
+  }
+  return out.slice(0, 200);
+}
+
+function addParsed(items) {
+  const now = Date.now();
+  // Keep the pasted order at the top of the list.
+  const tasks = items.map((it, i) => ({
+    id: uid(), title: it.title, created: now - i, today: false,
+    steps: it.steps.map(st => ({ id: uid(), title: st, done: false })),
+  }));
+  state.tasks.unshift(...tasks);
+  save(); render();
+}
+
+function openBulk(prefill = '') {
+  const root = $('#overlayRoot');
+  const close = () => root.replaceChildren();
+  const ta = el('textarea', { placeholder: 'Renew passport\nBook dentist for the boys\nHoliday prep\n  - book flights\n  - check passports' });
+  ta.value = prefill;
+  const preview = el('div', { class: 'preview' });
+  const count = el('div', { class: 'count' });
+  const addBtn = el('button', { class: 'btn', text: 'Add' });
+  const update = () => {
+    const items = parseList(ta.value);
+    const steps = items.reduce((n, it) => n + it.steps.length, 0);
+    count.textContent = items.length ? `${items.length} task${items.length > 1 ? 's' : ''}${steps ? `, ${steps} step${steps > 1 ? 's' : ''}` : ''}` : '';
+    addBtn.textContent = items.length ? `Add ${items.length} task${items.length > 1 ? 's' : ''}` : 'Add';
+    addBtn.disabled = !items.length;
+    preview.replaceChildren(...items.map(it => el('div', {},
+      el('div', { class: 'pt', text: '○ ' + it.title }),
+      it.steps.map(st => el('div', { class: 'ps', text: '· ' + st })))));
+  };
+  const file = el('input', { type: 'file', accept: '.txt,.md,.csv,text/plain,text/markdown,text/csv', hidden: true });
+  file.addEventListener('change', async () => {
+    const f = file.files[0];
+    if (!f) return;
+    let text = await f.text();
+    if (/\.csv$/i.test(f.name)) { // first column of each row
+      const firstCell = r => { const m = r.match(/^\s*"((?:[^"]|"")*)"/); return m ? m[1].replace(/""/g, '"') : r.split(',')[0]; };
+      const rows = text.split(/\r?\n/).map(firstCell);
+      if (/^\s*(tasks?|title|name|items?|to-?\s?dos?|description)\s*$/i.test(rows[0])) rows.shift(); // header row
+      text = rows.join('\n');
+    }
+    ta.value = (ta.value ? ta.value + '\n' : '') + text;
+    update();
+  });
+  ta.addEventListener('input', update);
+  addBtn.addEventListener('click', () => {
+    const items = parseList(ta.value);
+    if (!items.length) return;
+    close();
+    addParsed(items);
+    confetti(40);
+    toast(`${items.length} task${items.length > 1 ? 's' : ''} captured. Out of your head ✨`);
+  });
+  root.replaceChildren(el('div', { class: 'overlay', onclick: e => { if (e.target.classList.contains('overlay')) close(); } },
+    el('div', { class: 'card bulk' },
+      el('h3', { text: 'Paste a list' }),
+      el('p', { class: 'hint', text: 'One task per line, from Notes, an email, anywhere. Indent a line (or bullet it under a heading) to make it a step. Ticked items are skipped.' }),
+      ta,
+      el('button', { class: 'linkbtn file', type: 'button', text: '📄 or choose a text file', onclick: () => file.click() }), file,
+      count, preview,
+      addBtn,
+      el('button', { class: 'btn ghost', text: 'Cancel', onclick: close }))));
+  update();
+  ta.focus();
 }
 
 function completeTask(id, originEl) {
@@ -1007,6 +1117,12 @@ function render() {
 
 // ---------- Wiring ----------
 document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => go(b.dataset.view)));
+$('#bulkBtn').addEventListener('click', () => openBulk());
+// Pasting several lines into the single-line box opens the list importer instead.
+$('#captureInput').addEventListener('paste', e => {
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  if (/\n\s*\S/.test(text.trim())) { e.preventDefault(); openBulk(text); }
+});
 $('#captureForm').addEventListener('submit', e => {
   e.preventDefault();
   const inp = $('#captureInput');
