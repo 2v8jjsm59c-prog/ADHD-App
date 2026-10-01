@@ -1,0 +1,829 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cut">
+<title>Tiny Wins</title>
+<meta name="theme-color" content="#14161c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tiny Wins">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root {
+  --bg: #14161c;
+  --surface: #1e212a;
+  --surface-2: #272b36;
+  --text: #eef0f5;
+  --muted: #9aa1b2;
+  --line: #333846;
+  --accent: #7c5cff;
+  --accent-2: #00d4a6;
+  --warn: #ffb547;
+  --danger: #ff5c7a;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --surface-2: #eceef4;
+    --text: #1a1d26;
+    --muted: #626a7d;
+    --line: #dde0e8;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
+button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
+input { font: inherit; color: inherit; }
+.wrap { max-width: 560px; margin: 0 auto; padding: calc(12px + env(safe-area-inset-top)) 16px 16px; }
+
+/* Header / progress */
+.top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.ring-mini { width: 46px; height: 46px; flex: none; }
+.top-text { flex: 1; min-width: 0; }
+.top-text b { display: block; font-size: 15px; }
+.top-text span { color: var(--muted); font-size: 13px; }
+.level { font-size: 12px; color: var(--muted); text-align: right; }
+.level b { color: var(--text); font-size: 15px; display: block; }
+.xpbar { height: 4px; border-radius: 4px; background: var(--surface-2); margin-top: 4px; width: 70px; overflow: hidden; }
+.xpbar i { display: block; height: 100%; background: var(--accent); transition: width .5s; }
+
+/* Capture */
+.capture { display: flex; gap: 8px; margin-bottom: 16px; }
+.capture input {
+  flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 14px 16px; outline: none;
+}
+.capture input:focus { border-color: var(--accent); }
+.btn {
+  background: var(--accent); color: #fff; border-radius: var(--radius);
+  padding: 12px 18px; font-weight: 600;
+}
+.btn.ghost { background: var(--surface-2); color: var(--text); }
+.btn.green { background: var(--accent-2); color: #062b23; }
+.btn:active { transform: scale(.97); }
+
+/* Sections & tasks */
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 4px 8px; display: flex; justify-content: space-between; }
+h2 small { text-transform: none; letter-spacing: 0; }
+.empty { color: var(--muted); padding: 14px; text-align: center; font-size: 14px; border: 1px dashed var(--line); border-radius: var(--radius); }
+.task { background: var(--surface); border-radius: var(--radius); margin-bottom: 8px; overflow: hidden; }
+.task-row { display: flex; align-items: center; gap: 10px; padding: 12px; }
+.check {
+  width: 28px; height: 28px; flex: none; border-radius: 50%; border: 2px solid var(--muted);
+  display: grid; place-items: center; transition: all .2s;
+}
+.check:hover { border-color: var(--accent-2); }
+.check.done { background: var(--accent-2); border-color: var(--accent-2); }
+.task-title { flex: 1; min-width: 0; word-wrap: break-word; }
+.task-meta { font-size: 12px; color: var(--muted); }
+.icon-btn { padding: 6px 8px; border-radius: 10px; color: var(--muted); font-size: 18px; line-height: 1; }
+.icon-btn:hover { background: var(--surface-2); color: var(--text); }
+.star.on { color: var(--warn); }
+.mini-prog { height: 3px; background: var(--surface-2); }
+.mini-prog i { display: block; height: 100%; background: var(--accent-2); transition: width .4s; }
+.steps { border-top: 1px solid var(--line); padding: 8px 12px 12px; background: var(--surface); }
+.step { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.step .check { width: 22px; height: 22px; }
+.step.done .step-title { text-decoration: line-through; color: var(--muted); }
+.step-title { flex: 1; font-size: 15px; }
+.add-step { display: flex; gap: 6px; margin-top: 6px; }
+.add-step input { flex: 1; min-width: 0; background: var(--surface-2); border: 0; border-radius: 10px; padding: 9px 12px; outline: none; font-size: 15px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip { background: var(--surface-2); border-radius: 999px; padding: 5px 11px; font-size: 13px; color: var(--muted); }
+.chip:hover { color: var(--text); }
+.task-actions { display: flex; gap: 8px; margin-top: 10px; }
+.task-actions .btn { padding: 9px 14px; font-size: 14px; }
+.hint { font-size: 13px; color: var(--muted); margin: 4px 0 2px; }
+
+/* Focus */
+.focus { text-align: center; padding-top: 8px; }
+.focus .parent { color: var(--muted); font-size: 14px; margin-bottom: 6px; }
+.focus .now { font-size: 26px; font-weight: 700; line-height: 1.25; margin: 0 0 18px; word-wrap: break-word; }
+.timer { position: relative; width: 230px; height: 230px; margin: 0 auto 18px; }
+.timer svg { transform: rotate(-90deg); }
+.timer .t { position: absolute; inset: 0; display: grid; place-items: center; font-size: 46px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.timer .t small { display: block; font-size: 13px; font-weight: 500; color: var(--muted); }
+.durations { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.durations button { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 64px; }
+.durations button b { display: block; font-size: 18px; }
+.durations button span { font-size: 11px; color: var(--muted); }
+.durations button:hover { border-color: var(--accent); }
+.focus-actions { display: flex; flex-direction: column; gap: 8px; max-width: 340px; margin: 0 auto; }
+.focus-actions .row { display: flex; gap: 8px; }
+.focus-actions .row .btn { flex: 1; }
+.big-done { font-size: 20px; padding: 16px; }
+.nudge { background: var(--surface); border-radius: var(--radius); padding: 14px; margin: 0 auto 14px; max-width: 340px; font-size: 15px; }
+
+/* Wins */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { background: var(--surface); border-radius: var(--radius); padding: 14px 8px; text-align: center; }
+.stat b { display: block; font-size: 26px; }
+.stat span { font-size: 12px; color: var(--muted); }
+.log-item { display: flex; gap: 10px; padding: 10px 12px; background: var(--surface); border-radius: 12px; margin-bottom: 6px; font-size: 15px; }
+.log-item .when { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.log-item .sub { color: var(--muted); font-size: 12px; }
+.settings { display: flex; flex-direction: column; gap: 10px; background: var(--surface); padding: 14px; border-radius: var(--radius); }
+.settings label { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.settings select, .settings input[type=number] { background: var(--surface-2); border: 0; border-radius: 8px; padding: 6px 8px; color: var(--text); }
+
+/* Nav */
+nav {
+  position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface);
+  border-top: 1px solid var(--line); display: flex; justify-content: center;
+  padding-bottom: env(safe-area-inset-bottom); z-index: 5;
+}
+nav button { flex: 1; max-width: 186px; padding: 10px 0 12px; color: var(--muted); font-size: 12px; }
+nav button .ico { display: block; font-size: 22px; margin-bottom: 2px; }
+nav button.active { color: var(--accent); }
+nav button.focus-btn .ico { background: var(--accent); color: #fff; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; margin: -18px auto 2px; box-shadow: 0 4px 14px rgba(124,92,255,.5); }
+
+/* Celebration */
+#confetti { position: fixed; inset: 0; pointer-events: none; z-index: 20; }
+.toast {
+  position: fixed; left: 50%; bottom: calc(92px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px);
+  background: var(--text); color: var(--bg); padding: 12px 18px; border-radius: 999px; font-weight: 600;
+  opacity: 0; transition: all .3s; z-index: 21; display: flex; gap: 12px; align-items: center; max-width: calc(100% - 32px);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast button { color: var(--accent); font-weight: 700; }
+.xp-float { position: fixed; z-index: 22; font-weight: 800; color: var(--accent-2); font-size: 22px; pointer-events: none; animation: floatUp 1.1s ease-out forwards; }
+@keyframes floatUp { from { opacity: 1; transform: translate(-50%, 0) scale(1); } to { opacity: 0; transform: translate(-50%, -70px) scale(1.4); } }
+.pop { animation: pop .4s ease; }
+@keyframes pop { 50% { transform: scale(1.25); } }
+.overlay { position: fixed; inset: 0; background: rgba(10,10,20,.7); display: grid; place-items: center; z-index: 19; padding: 16px; }
+.overlay .card { background: var(--surface); border-radius: 20px; padding: 26px 22px; text-align: center; max-width: 360px; width: 100%; animation: pop .45s ease; }
+.overlay .card .emoji { font-size: 56px; }
+.overlay .card h3 { margin: 6px 0 4px; font-size: 22px; }
+.overlay .card p { color: var(--muted); margin: 0 0 18px; }
+.overlay .card .btn { width: 100%; margin-top: 8px; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<canvas id="confetti"></canvas>
+
+<div class="wrap">
+  <header class="top">
+    <svg class="ring-mini" viewBox="0 0 46 46" aria-hidden="true">
+      <circle cx="23" cy="23" r="19" fill="none" stroke="var(--surface-2)" stroke-width="6"/>
+      <circle id="goalRing" cx="23" cy="23" r="19" fill="none" stroke="var(--accent-2)" stroke-width="6"
+        stroke-linecap="round" stroke-dasharray="119.4" stroke-dashoffset="119.4" transform="rotate(-90 23 23)" style="transition: stroke-dashoffset .6s"/>
+    </svg>
+    <div class="top-text">
+      <b id="goalText">0 of 3 wins today</b>
+      <span id="streakText">Start a streak today</span>
+    </div>
+    <div class="level"><b id="levelText">Lv 1</b><div class="xpbar"><i id="xpBar" style="width:0"></i></div></div>
+  </header>
+
+  <!-- TASKS VIEW -->
+  <section id="view-tasks">
+    <form class="capture" id="captureForm" autocomplete="off">
+      <input id="captureInput" placeholder="Brain dump: what's on your mind?" enterkeyhint="done" aria-label="New task">
+      <button class="btn" type="submit">Add</button>
+    </form>
+    <h2>Today <small id="todayCount"></small></h2>
+    <div id="todayList"></div>
+    <h2>Everything else <small id="restCount"></small></h2>
+    <div id="restList"></div>
+  </section>
+
+  <!-- FOCUS VIEW -->
+  <section id="view-focus" hidden>
+    <div class="focus" id="focusRoot"></div>
+  </section>
+
+  <!-- WINS VIEW -->
+  <section id="view-wins" hidden>
+    <div class="stats">
+      <div class="stat"><b id="statToday">0</b><span>wins today</span></div>
+      <div class="stat"><b id="statStreak">0</b><span>day streak</span></div>
+      <div class="stat"><b id="statTotal">0</b><span>total wins</span></div>
+    </div>
+    <h2>Done list <small>proof you're getting stuff done</small></h2>
+    <div id="logList"></div>
+    <h2>Settings</h2>
+    <div class="settings">
+      <label>Daily win goal <input type="number" id="setGoal" min="1" max="20"></label>
+      <label>Sounds <select id="setSound"><option value="1">On</option><option value="0">Off</option></select></label>
+      <div class="row" style="display:flex;gap:8px">
+        <button class="btn ghost" id="exportBtn" style="flex:1">Export backup</button>
+        <button class="btn ghost" id="importBtn" style="flex:1">Import</button>
+        <input type="file" id="importFile" accept="application/json" hidden>
+      </div>
+    </div>
+  </section>
+</div>
+
+<nav>
+  <button data-view="tasks" class="active"><span class="ico">☰</span>Tasks</button>
+  <button data-view="focus" class="focus-btn"><span class="ico">▶</span>Focus</button>
+  <button data-view="wins"><span class="ico">★</span>Wins</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+<div id="overlayRoot"></div>
+
+<script>
+(() => {
+'use strict';
+
+// ---------- State ----------
+const KEY = 'tinywins.v1';
+const TODAY_MAX = 3;
+const XP = { step: 10, task: 25, effort: 3 };
+const DURATIONS = [
+  { m: 2, label: 'just start' },
+  { m: 5, label: 'quick' },
+  { m: 10, label: 'short' },
+  { m: 15, label: 'solid' },
+  { m: 25, label: 'deep' },
+];
+const STARTERS = [
+  'Open / find what I need',
+  'Write down what "done" looks like',
+  'Do the first 2 minutes',
+  'Send the message / email',
+  'Make the call',
+  'Ask someone for help',
+];
+const PRAISE = [
+  'Boom. Done.', 'That\'s momentum.', 'Look at you go!', 'One less thing in your head.',
+  'Nailed it.', 'Small step, real progress.', 'Future you says thanks.', 'Crushed it.',
+  'Brain: satisfied.', 'Keep that streak alive!',
+];
+const EFFORT_PRAISE = [
+  'Showing up counts. Seriously.', 'You started. That\'s the hard part.', 'Progress, not perfection.',
+];
+
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+function defaultState() {
+  return {
+    tasks: [],
+    log: [],
+    xp: 0,
+    streak: { last: null, count: 0 },
+    settings: { goal: 3, sound: true },
+    focus: null, // { taskId, stepId, endAt, minutes, expired }
+  };
+}
+
+let state;
+try { state = Object.assign(defaultState(), JSON.parse(localStorage.getItem(KEY)) || {}); }
+catch { state = defaultState(); }
+
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
+}
+
+// ---------- Helpers ----------
+const $ = sel => document.querySelector(sel);
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') n.className = v;
+    else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+    else if (k === 'text') n.textContent = v;
+    else if (v !== false && v != null) n.setAttribute(k, v);
+  }
+  for (const k of kids.flat()) if (k != null) n.append(k);
+  return n;
+}
+const findTask = id => state.tasks.find(t => t.id === id);
+const nextStep = t => t.steps.find(s => !s.done);
+const winsToday = () => state.log.filter(l => l.day === dayKey()).length;
+const level = () => Math.floor(state.xp / 100) + 1;
+
+let expanded = new Set();
+let view = 'tasks';
+
+// ---------- Rewards ----------
+function bumpStreak() {
+  const today = dayKey();
+  if (state.streak.last === today) return;
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  state.streak.count = state.streak.last === dayKey(y) ? state.streak.count + 1 : 1;
+  state.streak.last = today;
+}
+function currentStreak() {
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  return (state.streak.last === dayKey() || state.streak.last === dayKey(y)) ? state.streak.count : 0;
+}
+
+function award(kind, title, parent, originEl) {
+  const before = winsToday();
+  const oldLevel = level();
+  const pts = XP[kind];
+  state.xp += pts;
+  if (kind !== 'effort') {
+    state.log.unshift({ id: uid(), title, parent: parent || null, kind, at: Date.now(), day: dayKey(), xp: pts });
+    state.log = state.log.slice(0, 500);
+    bumpStreak();
+  }
+  save();
+
+  floatXP(pts, originEl);
+  const big = kind === 'task';
+  confetti(big ? 160 : kind === 'step' ? 70 : 25);
+  chime(big ? 'big' : kind === 'step' ? 'small' : 'soft');
+  if (navigator.vibrate) navigator.vibrate(big ? [30, 40, 60] : 25);
+
+  const hitGoal = kind !== 'effort' && before < state.settings.goal && winsToday() >= state.settings.goal;
+  if (level() > oldLevel) {
+    setTimeout(() => celebrate('🏆', `Level ${level()}!`, 'You levelled up. Keep stacking wins.'), 500);
+  } else if (hitGoal) {
+    setTimeout(() => { confetti(220); celebrate('🎯', 'Daily goal hit!', `${state.settings.goal} wins today. Anything else is bonus.`); }, 500);
+  } else {
+    toast(kind === 'effort' ? pick(EFFORT_PRAISE) : pick(PRAISE));
+  }
+  renderHeader();
+  const ring = $('#goalRing'); ring.classList.remove('pop'); void ring.getBBox(); ring.classList.add('pop');
+}
+
+function floatXP(pts, originEl) {
+  let x = innerWidth / 2, y = innerHeight / 2;
+  if (originEl && originEl.getBoundingClientRect) {
+    const r = originEl.getBoundingClientRect(); x = Math.max(60, Math.min(innerWidth - 60, r.left + r.width / 2)); y = r.top;
+  }
+  const f = el('div', { class: 'xp-float', text: `+${pts} XP` });
+  f.style.left = x + 'px'; f.style.top = y + 'px';
+  document.body.append(f);
+  setTimeout(() => f.remove(), 1200);
+}
+
+let toastTimer;
+function toast(msg, action) {
+  const t = $('#toast');
+  t.replaceChildren(el('span', { text: msg }));
+  if (action) t.append(el('button', { text: action.label, onclick: () => { action.fn(); t.classList.remove('show'); } }));
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), action ? 5000 : 2200);
+}
+
+function celebrate(emoji, title, text, buttons) {
+  const root = $('#overlayRoot');
+  const close = () => root.replaceChildren();
+  const btns = buttons || [{ label: 'Nice', cls: 'btn', fn: () => {} }];
+  root.replaceChildren(el('div', { class: 'overlay', onclick: e => { if (e.target.classList.contains('overlay')) close(); } },
+    el('div', { class: 'card' },
+      el('div', { class: 'emoji', text: emoji }),
+      el('h3', { text: title }),
+      el('p', { text: text }),
+      btns.map(b => el('button', { class: b.cls || 'btn', text: b.label, onclick: () => { close(); b.fn(); } }))
+    )));
+}
+
+// Sound (Web Audio, no files needed)
+let actx;
+function chime(type) {
+  if (!state.settings.sound) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const notes = { big: [523, 659, 784, 1047], small: [659, 988], soft: [523], alarm: [784, 784, 784] }[type];
+    notes.forEach((f, i) => {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type === 'alarm' ? 'square' : 'triangle';
+      o.frequency.value = f;
+      const t0 = actx.currentTime + i * (type === 'alarm' ? 0.25 : 0.09);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(type === 'alarm' ? 0.08 : 0.2, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.35);
+      o.connect(g).connect(actx.destination);
+      o.start(t0); o.stop(t0 + 0.4);
+    });
+  } catch {}
+}
+
+// Confetti
+const cv = $('#confetti'), cx = cv.getContext('2d');
+let parts = [], raf = null;
+function confetti(n) {
+  cv.width = innerWidth * devicePixelRatio; cv.height = innerHeight * devicePixelRatio;
+  cx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  const colors = ['#7c5cff', '#00d4a6', '#ffb547', '#ff5c7a', '#4cc9f0', '#ffffff'];
+  for (let i = 0; i < n; i++) {
+    parts.push({
+      x: innerWidth / 2 + (Math.random() - .5) * 80, y: innerHeight * 0.45,
+      vx: (Math.random() - .5) * 16, vy: -Math.random() * 16 - 4,
+      r: Math.random() * 6 + 4, c: pick(colors), rot: Math.random() * 6, vr: (Math.random() - .5) * .4, life: 0,
+    });
+  }
+  if (!raf) raf = requestAnimationFrame(tick);
+}
+function tick() {
+  cx.clearRect(0, 0, innerWidth, innerHeight);
+  parts = parts.filter(p => p.y < innerHeight + 20 && p.life < 240);
+  for (const p of parts) {
+    p.vy += 0.45; p.vx *= 0.99; p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life++;
+    cx.save(); cx.translate(p.x, p.y); cx.rotate(p.rot); cx.fillStyle = p.c;
+    cx.fillRect(-p.r / 2, -p.r / 4, p.r, p.r / 2); cx.restore();
+  }
+  raf = parts.length ? requestAnimationFrame(tick) : (cx.clearRect(0, 0, innerWidth, innerHeight), null);
+}
+
+// ---------- Task actions ----------
+function addTask(title) {
+  title = title.trim();
+  if (!title) return;
+  state.tasks.unshift({ id: uid(), title, created: Date.now(), today: false, steps: [] });
+  save(); render();
+}
+
+function completeTask(id, originEl) {
+  const t = findTask(id);
+  if (!t) return;
+  state.tasks = state.tasks.filter(x => x.id !== id);
+  expanded.delete(id);
+  if (state.focus && state.focus.taskId === id) state.focus = null;
+  award('task', t.title, null, originEl);
+  render();
+}
+
+function deleteTask(id) {
+  const idx = state.tasks.findIndex(t => t.id === id);
+  if (idx < 0) return;
+  const [removed] = state.tasks.splice(idx, 1);
+  if (state.focus && state.focus.taskId === id) state.focus = null;
+  save(); render();
+  toast('Let it go. Removed.', { label: 'Undo', fn: () => { state.tasks.splice(idx, 0, removed); save(); render(); } });
+}
+
+function toggleToday(id) {
+  const t = findTask(id);
+  if (!t.today && state.tasks.filter(x => x.today).length >= TODAY_MAX) {
+    toast(`Max ${TODAY_MAX} for today. Fewer = done.`);
+    return;
+  }
+  t.today = !t.today;
+  save(); render();
+}
+
+function addStep(taskId, title) {
+  title = title.trim();
+  if (!title) return;
+  findTask(taskId).steps.push({ id: uid(), title, done: false });
+  save(); render();
+}
+
+function completeStep(taskId, stepId, originEl) {
+  const t = findTask(taskId);
+  const s = t.steps.find(x => x.id === stepId);
+  if (s.done) { s.done = false; save(); render(); return; }
+  s.done = true;
+  award('step', s.title, t.title, originEl);
+  if (t.steps.every(x => x.done)) {
+    setTimeout(() => celebrate('🎉', 'All steps done!', `"${t.title}" is finished. Tick it off?`, [
+      { label: 'Yes, mark it done!', cls: 'btn green', fn: () => completeTask(t.id) },
+      { label: 'Not yet, add another step', cls: 'btn ghost', fn: () => { expanded.add(t.id); render(); } },
+    ]), 700);
+  }
+  render();
+}
+
+function deleteStep(taskId, stepId) {
+  const t = findTask(taskId);
+  t.steps = t.steps.filter(s => s.id !== stepId);
+  save(); render();
+}
+
+// ---------- Rendering: header ----------
+function renderHeader() {
+  const w = winsToday(), g = state.settings.goal;
+  $('#goalRing').setAttribute('stroke-dashoffset', 119.4 * (1 - Math.min(w / g, 1)));
+  $('#goalText').textContent = w >= g ? `${w} wins · goal smashed 🔥` : `${w} of ${g} wins today`;
+  const s = currentStreak();
+  $('#streakText').textContent = s ? `🔥 ${s}-day streak` : 'One win starts a streak';
+  $('#levelText').textContent = `Lv ${level()}`;
+  $('#xpBar').style.width = (state.xp % 100) + '%';
+}
+
+// ---------- Rendering: tasks ----------
+function taskCard(t) {
+  const isOpen = expanded.has(t.id);
+  const doneSteps = t.steps.filter(s => s.done).length;
+  const ns = nextStep(t);
+  const meta = t.steps.length
+    ? `${doneSteps}/${t.steps.length} steps${ns ? ' · next: ' + ns.title : ''}`
+    : 'Tap to break it down';
+
+  const card = el('div', { class: 'task' },
+    el('div', { class: 'task-row' },
+      el('button', { class: 'check', 'aria-label': 'Mark done', onclick: e => completeTask(t.id, e.currentTarget) }),
+      el('div', { class: 'task-title', onclick: () => { isOpen ? expanded.delete(t.id) : expanded.add(t.id); render(); }, style: 'cursor:pointer' },
+        el('div', { text: t.title }),
+        el('div', { class: 'task-meta', text: meta })),
+      el('button', { class: 'icon-btn star' + (t.today ? ' on' : ''), title: 'Today', 'aria-label': 'Toggle today', onclick: () => toggleToday(t.id), text: t.today ? '★' : '☆' }),
+      el('button', { class: 'icon-btn', title: 'Focus on this', 'aria-label': 'Focus on this', onclick: () => startFocusOn(t.id), text: '▶' }),
+    ),
+    t.steps.length ? el('div', { class: 'mini-prog' }, el('i', { style: `width:${doneSteps / t.steps.length * 100}%` })) : null,
+  );
+
+  if (isOpen) {
+    const input = el('input', { placeholder: 'Next tiny step… (e.g. "open the doc")', enterkeyhint: 'done', 'data-task': t.id });
+    const form = el('form', { class: 'add-step', onsubmit: e => { e.preventDefault(); focusStepInput = t.id; addStep(t.id, input.value); } },
+      input, el('button', { class: 'btn', type: 'submit', text: '+' }));
+    card.append(el('div', { class: 'steps' },
+      t.steps.length ? null : el('div', { class: 'hint', text: 'Too big to start? Split it into steps you could do in under 15 minutes.' }),
+      t.steps.map(s => el('div', { class: 'step' + (s.done ? ' done' : '') },
+        el('button', { class: 'check' + (s.done ? ' done' : ''), 'aria-label': 'Toggle step', onclick: e => completeStep(t.id, s.id, e.currentTarget), text: s.done ? '✓' : '' }),
+        el('span', { class: 'step-title', text: s.title }),
+        el('button', { class: 'icon-btn', 'aria-label': 'Delete step', onclick: () => deleteStep(t.id, s.id), text: '×' }))),
+      form,
+      el('div', { class: 'chips' }, STARTERS.map(s => el('button', { class: 'chip', text: '+ ' + s, onclick: () => addStep(t.id, s) }))),
+      el('div', { class: 'task-actions' },
+        el('button', { class: 'btn', text: '▶ Focus', onclick: () => startFocusOn(t.id) }),
+        el('button', { class: 'btn ghost', text: 'Delete', onclick: () => deleteTask(t.id) })),
+    ));
+  }
+  return card;
+}
+
+let focusStepInput = null;
+function renderTasks() {
+  const today = state.tasks.filter(t => t.today);
+  const rest = state.tasks.filter(t => !t.today);
+  $('#todayCount').textContent = `${today.length}/${TODAY_MAX}`;
+  $('#restCount').textContent = rest.length ? rest.length : '';
+  $('#todayList').replaceChildren(...(today.length ? today.map(taskCard)
+    : [el('div', { class: 'empty', text: state.tasks.length ? 'Star ☆ up to 3 things that matter today.' : 'Nothing here yet. Dump everything above, no sorting needed.' })]));
+  $('#restList').replaceChildren(...(rest.length ? rest.map(taskCard) : [el('div', { class: 'empty', text: 'Inbox zero. Nice.' })]));
+  if (focusStepInput) {
+    const inp = document.querySelector(`.add-step input[data-task="${focusStepInput}"]`);
+    if (inp) inp.focus();
+    focusStepInput = null;
+  }
+}
+
+// ---------- Focus mode ----------
+let timerInt = null;
+
+function pickForMe() {
+  if (!state.tasks.length) return null;
+  const score = t => (t.today ? 100 : 0) + (nextStep(t) ? 20 : 0) + Math.min((Date.now() - t.created) / 864e5, 30);
+  const sorted = [...state.tasks].sort((a, b) => score(b) - score(a));
+  return pick(sorted.slice(0, Math.min(3, sorted.length)));
+}
+
+function startFocusOn(taskId) {
+  const t = findTask(taskId);
+  if (!t) return;
+  const s = nextStep(t);
+  state.focus = { taskId, stepId: s ? s.id : null, endAt: null, minutes: null, expired: false };
+  save(); go('focus');
+}
+
+function startTimer(minutes) {
+  state.focus.minutes = minutes;
+  state.focus.endAt = Date.now() + minutes * 60000;
+  state.focus.expired = false;
+  chime('soft');
+  save(); renderFocus();
+}
+
+function focusTarget() {
+  const f = state.focus;
+  if (!f) return null;
+  const t = findTask(f.taskId);
+  if (!t) { state.focus = null; return null; }
+  const s = f.stepId ? t.steps.find(x => x.id === f.stepId && !x.done) : null;
+  if (f.stepId && !s) { // step was completed elsewhere: move to next
+    const n = nextStep(t); f.stepId = n ? n.id : null;
+    return { t, s: n || null };
+  }
+  return { t, s };
+}
+
+function focusDone(originEl) {
+  const { t, s } = focusTarget();
+  clearInterval(timerInt);
+  if (s) {
+    s.done = true;
+    award('step', s.title, t.title, originEl);
+    const n = nextStep(t);
+    if (n) {
+      state.focus = { taskId: t.id, stepId: n.id, endAt: null, minutes: null, expired: false };
+      save(); renderFocus();
+      setTimeout(() => celebrate('✅', 'Step done!', `Next up: "${n.title}"`, [
+        { label: 'Keep rolling', cls: 'btn', fn: () => {} },
+        { label: 'Take a 5 min break', cls: 'btn ghost', fn: () => { state.focus = null; save(); go('tasks'); toast('Break earned. Come back after ☕'); } },
+      ]), 600);
+    } else {
+      state.focus = { taskId: t.id, stepId: null, endAt: null, minutes: null, expired: false };
+      save(); renderFocus();
+      setTimeout(() => celebrate('🎉', 'Every step done!', `Is "${t.title}" finished?`, [
+        { label: 'Yes! Tick it off', cls: 'btn green', fn: () => { state.focus = null; completeTask(t.id); renderFocus(); } },
+        { label: 'Needs another step', cls: 'btn ghost', fn: () => { state.focus = null; expanded.add(t.id); go('tasks'); } },
+      ]), 600);
+    }
+  } else {
+    state.focus = null;
+    completeTask(t.id, originEl);
+    renderFocus();
+  }
+}
+
+function focusStop(withEffort) {
+  clearInterval(timerInt);
+  state.focus = null;
+  save();
+  if (withEffort) award('effort', null, null);
+  renderFocus();
+}
+
+function focusSplit() {
+  const { t } = focusTarget();
+  clearInterval(timerInt);
+  state.focus = null; save();
+  expanded.add(t.id);
+  go('tasks');
+  toast('Split it smaller. What\'s the very first move?');
+}
+
+function fmt(ms) {
+  const sec = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+}
+
+function renderFocus() {
+  clearInterval(timerInt);
+  const root = $('#focusRoot');
+  const target = focusTarget();
+
+  if (!target) {
+    const today = state.tasks.filter(t => t.today);
+    root.replaceChildren(
+      el('p', { class: 'parent', text: 'Can\'t decide? That\'s normal.' }),
+      el('div', { class: 'now', text: state.tasks.length ? 'Pick one thing. Just one.' : 'Add a task first, then come back here.' }),
+      state.tasks.length ? el('div', { class: 'focus-actions' },
+        el('button', { class: 'btn big-done', text: '🎲 Pick for me', onclick: () => { const t = pickForMe(); t && startFocusOn(t.id); } }),
+        (today.length ? today : state.tasks.slice(0, 5)).map(t =>
+          el('button', { class: 'btn ghost', text: t.title, onclick: () => startFocusOn(t.id) })),
+      ) : el('button', { class: 'btn', text: 'Go to tasks', onclick: () => go('tasks') }),
+    );
+    return;
+  }
+
+  const { t, s } = target;
+  const f = state.focus;
+  const nowText = s ? s.title : t.title;
+  const kids = [
+    el('div', { class: 'parent', text: s ? `Part of: ${t.title}` : (t.steps.length ? 'Final check' : 'The whole thing') }),
+    el('h1', { class: 'now', text: nowText }),
+  ];
+
+  if (!f.endAt) {
+    // choose a time window
+    kids.push(
+      el('p', { class: 'hint', text: 'How long will you give it? You can stop when the timer ends, no guilt.' }),
+      el('div', { class: 'durations' }, DURATIONS.map(d =>
+        el('button', { onclick: () => startTimer(d.m) }, el('b', { text: d.m + 'm' }), el('span', { text: d.label })))),
+      el('div', { class: 'focus-actions' },
+        !s && !t.steps.length ? el('button', { class: 'btn ghost', text: '🪓 Too big? Break it down first', onclick: focusSplit }) : null,
+        el('button', { class: 'btn green', text: '✓ Already done it', onclick: e => focusDone(e.currentTarget) }),
+        el('button', { class: 'btn ghost', text: '🎲 Something else', onclick: () => { state.focus = null; save(); renderFocus(); } })),
+    );
+    root.replaceChildren(...kids);
+    return;
+  }
+
+  // running or expired timer
+  const C = 2 * Math.PI * 100;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 230 230'); svg.setAttribute('width', '230'); svg.setAttribute('height', '230');
+  svg.innerHTML = `<circle cx="115" cy="115" r="100" fill="none" stroke="var(--surface-2)" stroke-width="14"/>
+    <circle id="tRing" cx="115" cy="115" r="100" fill="none" stroke="var(--accent)" stroke-width="14" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="0"/>`;
+  const tText = el('div', { text: '' });
+  const tSub = el('small', { text: '' });
+  const timer = el('div', { class: 'timer' }, svg, el('div', { class: 't' }, el('div', {}, tText, tSub)));
+  const actions = el('div', { class: 'focus-actions' });
+  kids.push(timer, actions);
+  root.replaceChildren(...kids);
+
+  const total = f.minutes * 60000;
+  const update = () => {
+    const left = f.endAt - Date.now();
+    const tr = svg.querySelector('#tRing');
+    if (left <= 0) {
+      clearInterval(timerInt);
+      tText.textContent = '0:00'; tSub.textContent = 'time\'s up';
+      tr.setAttribute('stroke-dashoffset', C); tr.setAttribute('stroke', 'var(--warn)');
+      if (!f.expired) { f.expired = true; save(); chime('alarm'); if (navigator.vibrate) navigator.vibrate([200, 100, 200]); }
+      actions.replaceChildren(
+        el('div', { class: 'nudge', text: 'Time\'s up! How did it go?' }),
+        el('button', { class: 'btn green big-done', text: '✓ Done it!', onclick: e => focusDone(e.currentTarget) }),
+        el('div', { class: 'row' },
+          el('button', { class: 'btn', text: '+5 min', onclick: () => startTimer(5) }),
+          el('button', { class: 'btn ghost', text: '🪓 Split it', onclick: focusSplit })),
+        el('button', { class: 'btn ghost', text: 'Stop for now (+3 XP for trying)', onclick: () => focusStop(true) }),
+      );
+      return;
+    }
+    tText.textContent = fmt(left);
+    tSub.textContent = `of ${f.minutes} min`;
+    tr.setAttribute('stroke-dashoffset', C * (1 - left / total));
+    document.title = `${fmt(left)} · ${nowText}`;
+  };
+  actions.replaceChildren(
+    el('button', { class: 'btn green big-done', text: '✓ Done!', onclick: e => focusDone(e.currentTarget) }),
+    el('div', { class: 'row' },
+      el('button', { class: 'btn ghost', text: '🪓 Too big', onclick: focusSplit }),
+      el('button', { class: 'btn ghost', text: 'Stop', onclick: () => focusStop(Date.now() - (f.endAt - total) > 60000) })),
+  );
+  update();
+  if (f.endAt > Date.now()) timerInt = setInterval(update, 250);
+}
+
+// ---------- Wins ----------
+function renderWins() {
+  $('#statToday').textContent = winsToday();
+  $('#statStreak').textContent = currentStreak();
+  $('#statTotal').textContent = state.log.length;
+  $('#setGoal').value = state.settings.goal;
+  $('#setSound').value = state.settings.sound ? '1' : '0';
+  const items = state.log.slice(0, 60);
+  $('#logList').replaceChildren(...(items.length ? items.map(l => el('div', { class: 'log-item' },
+    el('span', { text: l.kind === 'task' ? '🏁' : '✅' }),
+    el('div', {}, el('div', { text: l.title }), l.parent ? el('div', { class: 'sub', text: l.parent }) : null),
+    el('span', { class: 'when', text: when(l.at) })))
+    : [el('div', { class: 'empty', text: 'Your wins will show up here. Every tick counts.' })]));
+}
+function when(ts) {
+  const d = new Date(ts);
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (dayKey(d) === dayKey()) return time;
+  return d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+// ---------- Navigation ----------
+function go(v) {
+  view = v;
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+  for (const name of ['tasks', 'focus', 'wins']) $('#view-' + name).hidden = name !== v;
+  if (v !== 'focus') { clearInterval(timerInt); document.title = 'Tiny Wins'; }
+  render();
+  scrollTo(0, 0);
+}
+function render() {
+  renderHeader();
+  if (view === 'tasks') renderTasks();
+  if (view === 'focus') renderFocus();
+  if (view === 'wins') renderWins();
+}
+
+// ---------- Wiring ----------
+document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => go(b.dataset.view)));
+$('#captureForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const inp = $('#captureInput');
+  if (!inp.value.trim()) return;
+  addTask(inp.value);
+  inp.value = '';
+  inp.focus();
+  toast('Captured. Out of your head ✨');
+});
+$('#setGoal').addEventListener('change', e => { state.settings.goal = Math.max(1, Math.min(20, +e.target.value || 3)); save(); renderHeader(); });
+$('#setSound').addEventListener('change', e => { state.settings.sound = e.target.value === '1'; save(); });
+$('#exportBtn').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const a = el('a', { href: URL.createObjectURL(blob), download: `tinywins-${dayKey()}.json` });
+  document.body.append(a); a.click(); a.remove();
+});
+$('#importBtn').addEventListener('click', () => $('#importFile').click());
+$('#importFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (!Array.isArray(data.tasks)) throw new Error();
+    state = Object.assign(defaultState(), data);
+    save(); render(); toast('Backup restored');
+  } catch { toast('That file didn\'t look like a backup'); }
+  e.target.value = '';
+});
+document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+go(state.focus ? 'focus' : 'tasks');
+})();
+</script>
+</body>
+</html>
