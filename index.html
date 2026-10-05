@@ -94,6 +94,19 @@ h2 small { text-transform: none; letter-spacing: 0; }
 .icon-btn:hover { background: var(--surface-2); color: var(--text); }
 .star.on { color: var(--warn); }
 .edit-input { width: 100%; background: var(--surface-2); border: 1px solid var(--accent); border-radius: 8px; padding: 6px 8px; font: inherit; color: var(--text); outline: none; }
+.viewtoggle { margin: 12px 0 0; }
+.viewtoggle button { padding: 7px 4px; font-size: 14px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 10px 4px 0; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+.ov-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+.ov { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; background: var(--surface); border: 1px solid var(--line);
+  border-left: 4px solid var(--line); border-radius: 10px; padding: 7px 10px; font-size: 14px; line-height: 1.2; text-align: left; }
+.ov.hot { border-left-color: var(--danger); }
+.ov.warm { border-left-color: var(--warn); }
+.ov:active { transform: scale(.96); }
+.ov-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov small { color: var(--muted); font-size: 11px; }
+.rate input { min-width: 0; background: var(--surface-2); border: 0; border-radius: 10px; padding: 7px 10px; font: inherit; font-size: 14px; color: var(--text); outline: none; }
 .step .edit-input { font-size: 15px; }
 .step-title { cursor: text; }
 .mini-prog { height: 3px; background: var(--surface-2); }
@@ -142,7 +155,8 @@ h2 small { text-transform: none; letter-spacing: 0; }
 .searchbar .btn { padding: 10px 14px; }
 .listbar .left { display: flex; gap: 14px; }
 .linkbtn, .sortbar { white-space: nowrap; }
-.sortbar select { max-width: 150px; }
+.sortbar select { max-width: 130px; }
+.listbar .left { gap: 12px; }
 mark { background: rgba(255,181,71,.45); color: inherit; border-radius: 3px; padding: 0 1px; }
 .linkbtn { color: var(--accent); font-size: 14px; font-weight: 600; padding: 6px 0; }
 .sortbar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
@@ -250,12 +264,22 @@ nav button.focus-btn .ico { background: var(--accent); color: #fff; width: 44px;
     </div>
     <div class="listbar">
       <div class="left">
-        <button class="linkbtn" id="bulkBtn" type="button">📋 Paste a list</button>
+        <button class="linkbtn" id="bulkBtn" type="button">📋 Paste list</button>
         <button class="linkbtn" id="searchBtn" type="button">🔍 Search</button>
       </div>
-      <div class="sortbar" id="sortBar">Sort by
+      <div class="sortbar" id="sortBar"><span aria-hidden="true">↕</span>
         <select id="sortSelect" aria-label="Sort tasks"></select>
       </div>
+    </div>
+    <div class="seg viewtoggle" role="tablist" aria-label="View">
+      <button id="viewList" type="button">☰ List</button>
+      <button id="viewOverview" type="button">▦ Overview</button>
+    </div>
+    <div class="legend" id="ovLegend" hidden>
+      <span><i style="background:var(--danger)"></i>Important / ASAP</span>
+      <span><i style="background:var(--warn)"></i>This week</span>
+      <span>⚡ Quick</span>
+      <span>Tap a task for options</span>
     </div>
     <h2 id="todayHead">Today <small id="todayCount"></small></h2>
     <div id="todayList"></div>
@@ -383,7 +407,7 @@ function defaultState() {
     log: [],
     xp: 0,
     streak: { last: null, count: 0 },
-    settings: { goal: 3, sound: true, sort: 'smart' },
+    settings: { goal: 3, sound: true, sort: 'smart', view: 'list' },
     focus: null, // { taskId, stepId, endAt, minutes, expired }
   };
 }
@@ -773,6 +797,61 @@ function orderedTasks() {
   return sorted;
 }
 
+// ---------- Overview ----------
+// A short label for the Overview: the task's own "short label" if set, else an
+// automatic one (filler phrases and small words dropped, up to 4 words / 24 chars).
+const FILLER = /^(?:(?:i\s+)?(?:need|have|got|must|should|want)\s+to\s+|remember\s+to\s+|try\s+to\s+|sort\s+out\s+|get\s+round\s+to\s+|deal\s+with\s+|look\s+into\s+|follow\s+up\s+(?:on|with)\s+)+/i;
+const STOPWORDS = new Set(['the', 'a', 'an', 'for', 'to', 'of', 'my', 'our', 'with', 'about', 're', 'on', 'and', 'in', 'at', 'from', 'by', 'some', 'his', 'her', 'their', 'this', 'that']);
+function autoShort(title) {
+  const words = title.replace(FILLER, '').split(/\s+/).filter(w => w && !STOPWORDS.has(w.toLowerCase()));
+  let out = '';
+  for (const w of words) {
+    const next = out ? out + ' ' + w : w;
+    if (next.length > 24 && out) break;
+    out = next;
+    if (out.split(' ').length >= 4) break;
+  }
+  if (!out) out = title.trim();
+  if (out.length > 24) out = out.slice(0, 22) + '…';
+  return out.charAt(0).toUpperCase() + out.slice(1);
+}
+const shortLabel = t => t.short || autoShort(t.title);
+// Colour only what the user actually rated (unrated counts as medium for sorting, but shouldn't be coloured).
+const heat = t => t.imp === 3 || t.urg === 3 ? 'hot' : t.urg === 2 ? 'warm' : '';
+
+function chip(t, words) {
+  const n = t.steps.length, d = t.steps.filter(x => x.done).length;
+  return el('button', { class: 'ov ' + heat(t), title: t.title, onclick: () => taskSheet(t) },
+    t.effort === 1 ? el('span', { text: '⚡' }) : null,
+    el('span', { class: 'ov-t' }, ...hl(shortLabel(t), words)),
+    n ? el('small', { text: `${d}/${n}` }) : null);
+}
+
+function taskSheet(t) {
+  const ns = nextStep(t);
+  const info = [
+    t.steps.length ? `${t.steps.filter(x => x.done).length}/${t.steps.length} steps${ns ? ' · next: ' + ns.title : ''}` : 'Not broken down yet',
+    ...CRITERIA.map(c => c.badge[t[c.key]]).filter(Boolean).map(b => b[0]),
+  ].join(' · ');
+  celebrate('📌', t.title, info, [
+    { label: '🚀 Start: 2 min', cls: 'btn', fn: () => ns ? launch(2, t.id) : startFocusOn(t.id) },
+    { label: '✓ Done', cls: 'btn green', fn: () => completeTask(t.id) },
+    { label: t.today ? '☆ Remove from Today' : '★ Add to Today', cls: 'btn ghost', fn: () => toggleToday(t.id) },
+    { label: 'Open details', cls: 'btn ghost', fn: () => openInList(t.id) },
+  ]);
+}
+
+function setView(v) {
+  state.settings.view = v;
+  save(); render();
+}
+function openInList(id) {
+  expanded.add(id);
+  setView('list');
+  const card = document.querySelector(`.task[data-id="${id}"]`);
+  if (card) card.scrollIntoView({ block: 'center' });
+}
+
 // Inline editing of a task or step title. Enter or tapping away saves; Escape cancels.
 let editing = null; // { taskId, stepId } (stepId null = the task itself)
 const isEditing = (taskId, stepId = null) => editing && editing.taskId === taskId && editing.stepId === stepId;
@@ -810,7 +889,7 @@ function taskCard(t) {
   const meta = stepHit ? ['Step: ', ...hl(stepHit.title, words)]
     : [t.steps.length ? `${doneSteps}/${t.steps.length} steps${ns ? ' · next: ' + ns.title : ''}` : 'Tap to break it down'];
 
-  const card = el('div', { class: 'task' },
+  const card = el('div', { class: 'task', 'data-id': t.id },
     el('div', { class: 'task-row' },
       el('button', { class: 'check', 'aria-label': 'Mark done', onclick: e => completeTask(t.id, e.currentTarget) }),
       el('div', { class: 'task-title', onclick: () => { if (isEditing(t.id)) return; isOpen ? expanded.delete(t.id) : expanded.add(t.id); render(); }, style: 'cursor:pointer' },
@@ -832,7 +911,11 @@ function taskCard(t) {
         el('span', { text: c.label }),
         el('div', { class: 'seg' }, c.opts.map((label, i) =>
           el('button', { class: t[c.key] === i + 1 ? 'on' : '', text: label, onclick: () => setRating(t.id, c.key, i + 1) }))),
-      ])),
+      ]),
+        el('span', { text: 'Short label' }),
+        el('input', { value: t.short || '', placeholder: autoShort(t.title), maxlength: 30, enterkeyhint: 'done', 'aria-label': 'Short label for Overview',
+          onkeydown: e => { if (e.key === 'Enter') e.target.blur(); },
+          onchange: e => { t.short = e.target.value.trim() || null; save(); } })),
       el('div', { class: 'hint', text: t.steps.length ? 'Tap a step to edit it.' : 'Too big to start? Split it into steps you could do in under 15 minutes.' }),
       t.steps.map(s => el('div', { class: 'step' + (s.done ? ' done' : '') },
         el('button', { class: 'check' + (s.done ? ' done' : ''), 'aria-label': 'Toggle step', onclick: e => completeStep(t.id, s.id, e.currentTarget), text: s.done ? '✓' : '' }),
@@ -873,8 +956,12 @@ let focusStepInput = null;
 function renderTasks() {
   const words = queryWords();
   const searching = words.length > 0;
+  const ov = state.settings.view === 'overview';
+  $('#viewList').classList.toggle('on', !ov);
+  $('#viewOverview').classList.toggle('on', ov);
+  $('#ovLegend').hidden = !ov || !state.tasks.length;
   $('#startCard').hidden = true;
-  if (!searching) renderStartCard();
+  if (!searching && !ov) renderStartCard(); // Overview is about seeing everything; skip the big card
   const sorted = orderedTasks().filter(t => !searching || matchesTask(t, words));
   const today = sorted.filter(t => t.today);
   const rest = sorted.filter(t => !t.today);
@@ -885,9 +972,10 @@ function renderTasks() {
   // While searching, hide empty sections; if nothing matches at all, say so once.
   $('#todayHead').hidden = $('#todayList').hidden = searching && !today.length;
   $('#restHead').hidden = $('#restList').hidden = searching && !rest.length && !!today.length;
-  $('#todayList').replaceChildren(...(today.length ? today.map(taskCard)
+  const show = list => ov ? [el('div', { class: 'ov-wrap' }, list.map(t => chip(t, words)))] : list.map(taskCard);
+  $('#todayList').replaceChildren(...(today.length ? show(today)
     : [searching ? noMatch : el('div', { class: 'empty', text: state.tasks.length ? 'Star ☆ up to 3 things that matter today.' : 'Nothing here yet. Dump everything above, no sorting needed.' })]));
-  $('#restList').replaceChildren(...(rest.length ? rest.map(taskCard) : [searching ? noMatch.cloneNode(true) : el('div', { class: 'empty', text: 'Inbox zero. Nice.' })]));
+  $('#restList').replaceChildren(...(rest.length ? show(rest) : [searching ? noMatch.cloneNode(true) : el('div', { class: 'empty', text: 'Inbox zero. Nice.' })]));
 
   // While searching, also show matching finished items ("did I already do that?").
   const done = searching ? state.log.filter(l => l.kind !== 'start' && words.every(w => norm(l.title + ' ' + (l.parent || '')).includes(w))) : [];
@@ -1234,6 +1322,8 @@ function render() {
 // ---------- Wiring ----------
 document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => go(b.dataset.view)));
 $('#bulkBtn').addEventListener('click', () => openBulk());
+$('#viewList').addEventListener('click', () => setView('list'));
+$('#viewOverview').addEventListener('click', () => setView('overview'));
 function closeSearch() {
   query = '';
   $('#searchInput').value = '';

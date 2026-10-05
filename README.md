@@ -18,8 +18,9 @@ The app is designed mainly around **starting**, because that's where things get 
    - dreading it → only the first 2 minutes
    - boring → race a 10-minute clock
    - no energy → swap to a different task
-7. **Search.** Tap **🔍 Search** to filter by any word in a task or its steps (accents and capitals don't matter). It also searches your finished items, so you can check whether you already did something.
-8. **Prioritise (optional).** Open a task and rate it with one tap each: **Importance** (Low/Medium/High), **Urgency** (Whenever/This week/ASAP) and **Effort** (Quick/Medium/Big). Tap a rating again to clear it; unrated counts as medium. Use **Sort by** to order the list:
+7. **See the big picture.** Switch from **☰ List** to **▦ Overview** to see each task as a small tag with a short label, about 20–25 to a screen instead of 2–3. Tags are coloured by priority (red = Important or ASAP, amber = This week, ⚡ = Quick) and show step progress. Tap a tag to Start, mark it Done, add it to Today, or open its details. Labels are generated automatically; to set your own, open the task and fill in **Short label**.
+8. **Search.** Tap **🔍 Search** to filter by any word in a task or its steps (accents and capitals don't matter). It also searches your finished items, so you can check whether you already did something.
+9. **Prioritise (optional).** Open a task and rate it with one tap each: **Importance** (Low/Medium/High), **Urgency** (Whenever/This week/ASAP) and **Effort** (Quick/Medium/Big). Tap a rating again to clear it; unrated counts as medium. Use **Sort by** to order the list:
    - **Smart** (default): importance + urgency, with a nudge towards quick tasks
    - Most important / Most urgent / Easiest first
    - **Quick wins**: important *and* easy
@@ -28,8 +29,8 @@ The app is designed mainly around **starting**, because that's where things get 
    While a task's box is open, changing its ratings won't move it. The list re-sorts when you close the box.
 
    The Start card follows your sort, so choosing "Easiest first" on a low-energy evening makes it suggest easy tasks. In "I'm stuck", **No energy** jumps straight to your easiest task.
-9. **Pick 3 for today.** Star ☆ up to three tasks; these come first on the Start card.
-10. **Celebrate.** Confetti, chimes, XP, a daily-goal ring, a streak, levels, and a **Done list** that shows what you started (🚀) and finished (✅ 🏁).
+10. **Pick 3 for today.** Star ☆ up to three tasks; these come first on the Start card.
+11. **Celebrate.** Confetti, chimes, XP, a daily-goal ring, a streak, levels, and a **Done list** that shows what you started (🚀) and finished (✅ 🏁).
 
 **Editing:** open a task and tap **✏️ Edit** to change its name, or tap any step to change it. Enter (or tapping away) saves, and Escape cancels.
 
