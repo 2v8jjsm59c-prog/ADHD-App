@@ -107,6 +107,9 @@ h2 small { text-transform: none; letter-spacing: 0; }
 .ov-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ov small { color: var(--muted); font-size: 11px; }
 .rate input { min-width: 0; background: var(--surface-2); border: 0; border-radius: 10px; padding: 7px 10px; font: inherit; font-size: 14px; color: var(--text); outline: none; }
+.bulk textarea.edit-ta { min-height: 96px; margin-bottom: 4px; }
+.task-row .icon-btn.edit { font-size: 16px; }
+.focus .linkbtn { margin: -10px 0 14px; }
 .step .edit-input { font-size: 15px; }
 .step-title { cursor: text; }
 .mini-prog { height: 3px; background: var(--surface-2); }
@@ -837,6 +840,7 @@ function taskSheet(t) {
     { label: '🚀 Start: 2 min', cls: 'btn', fn: () => ns ? launch(2, t.id) : startFocusOn(t.id) },
     { label: '✓ Done', cls: 'btn green', fn: () => completeTask(t.id) },
     { label: t.today ? '☆ Remove from Today' : '★ Add to Today', cls: 'btn ghost', fn: () => toggleToday(t.id) },
+    { label: '✏️ Edit', cls: 'btn ghost', fn: () => editTask(t.id) },
     { label: 'Open details', cls: 'btn ghost', fn: () => openInList(t.id) },
   ]);
 }
@@ -855,6 +859,38 @@ function openInList(id) {
 // Inline editing of a task or step title. Enter or tapping away saves; Escape cancels.
 let editing = null; // { taskId, stepId } (stepId null = the task itself)
 const isEditing = (taskId, stepId = null) => editing && editing.taskId === taskId && editing.stepId === stepId;
+// Edit dialog used everywhere (list, Overview, Focus). A dialog rather than
+// in-place editing so it behaves the same on every screen and with the iPhone keyboard.
+function editText(heading, value, onSave) {
+  const root = $('#overlayRoot');
+  const close = () => root.replaceChildren();
+  const ta = el('textarea', { class: 'edit-ta', maxlength: 200, enterkeyhint: 'done', 'aria-label': heading });
+  ta.value = value;
+  const doSave = () => {
+    const v = ta.value.replace(/\s+/g, ' ').trim();
+    if (!v) { ta.focus(); toast('Type something, or use Delete instead'); return; }
+    close();
+    if (v !== value) { onSave(v); save(); toast('Updated ✏️'); }
+    render();
+  };
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); doSave(); }
+    if (e.key === 'Escape') close();
+  });
+  root.replaceChildren(el('div', { class: 'overlay', onclick: e => { if (e.target.classList.contains('overlay')) close(); } },
+    el('div', { class: 'card bulk' },
+      el('h3', { text: heading }),
+      ta,
+      el('button', { class: 'btn', text: 'Save', onclick: doSave }),
+      el('button', { class: 'btn ghost', text: 'Cancel', onclick: close }))));
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+}
+function editTask(id) {
+  const t = findTask(id);
+  if (t) editText('Edit task', t.title, v => { t.title = v; });
+}
+
 function startEdit(taskId, stepId = null) {
   editing = { taskId, stepId };
   expanded.add(taskId);
@@ -892,10 +928,11 @@ function taskCard(t) {
   const card = el('div', { class: 'task', 'data-id': t.id },
     el('div', { class: 'task-row' },
       el('button', { class: 'check', 'aria-label': 'Mark done', onclick: e => completeTask(t.id, e.currentTarget) }),
-      el('div', { class: 'task-title', onclick: () => { if (isEditing(t.id)) return; isOpen ? expanded.delete(t.id) : expanded.add(t.id); render(); }, style: 'cursor:pointer' },
-        isEditing(t.id) ? editField(t.title, v => { t.title = v; }) : el('div', {}, ...hl(t.title, words)),
+      el('div', { class: 'task-title', onclick: () => { isOpen ? expanded.delete(t.id) : expanded.add(t.id); render(); }, style: 'cursor:pointer' },
+        el('div', {}, ...hl(t.title, words)),
         el('div', { class: 'task-meta' }, ...meta),
         badgesFor(t)),
+      isOpen ? el('button', { class: 'icon-btn edit', title: 'Edit task', 'aria-label': 'Edit task', onclick: () => editTask(t.id), text: '✏️' }) : null,
       el('button', { class: 'icon-btn star' + (t.today ? ' on' : ''), title: 'Today', 'aria-label': 'Toggle today', onclick: () => toggleToday(t.id), text: t.today ? '★' : '☆' }),
       el('button', { class: 'icon-btn', title: 'Focus on this', 'aria-label': 'Focus on this', onclick: () => startFocusOn(t.id), text: '▶' }),
     ),
@@ -916,7 +953,7 @@ function taskCard(t) {
         el('input', { value: t.short || '', placeholder: autoShort(t.title), maxlength: 30, enterkeyhint: 'done', 'aria-label': 'Short label for Overview',
           onkeydown: e => { if (e.key === 'Enter') e.target.blur(); },
           onchange: e => { t.short = e.target.value.trim() || null; save(); } })),
-      el('div', { class: 'hint', text: t.steps.length ? 'Tap a step to edit it.' : 'Too big to start? Split it into steps you could do in under 15 minutes.' }),
+      el('div', { class: 'hint', text: t.steps.length ? 'Tap ✏️ to edit the task, or tap a step to edit it.' : 'Tap ✏️ to edit the task. Too big to start? Split it into steps you could do in under 15 minutes.' }),
       t.steps.map(s => el('div', { class: 'step' + (s.done ? ' done' : '') },
         el('button', { class: 'check' + (s.done ? ' done' : ''), 'aria-label': 'Toggle step', onclick: e => completeStep(t.id, s.id, e.currentTarget), text: s.done ? '✓' : '' }),
         isEditing(t.id, s.id) ? editField(s.title, v => { s.title = v; })
@@ -926,7 +963,7 @@ function taskCard(t) {
       el('div', { class: 'chips' }, STARTERS.map(s => el('button', { class: 'chip', text: '+ ' + s, onclick: () => addStep(t.id, s) }))),
       el('div', { class: 'task-actions' },
         el('button', { class: 'btn', text: '▶ Focus', onclick: () => startFocusOn(t.id) }),
-        el('button', { class: 'btn ghost', text: '✏️ Edit', onclick: () => startEdit(t.id) }),
+        el('button', { class: 'btn ghost', text: '✏️ Edit', onclick: () => editTask(t.id) }),
         el('button', { class: 'btn ghost', text: 'Delete', onclick: () => deleteTask(t.id) })),
     ));
   }
@@ -1179,6 +1216,7 @@ function renderFocus() {
   const kids = [
     el('div', { class: 'parent', text: s ? `Part of: ${t.title}` : (t.steps.length ? 'Final check' : 'The whole thing') }),
     el('h1', { class: 'now', text: nowText }),
+    el('button', { class: 'linkbtn', text: '✏️ Edit', onclick: () => editText(s ? 'Edit step' : 'Edit task', nowText, v => { (s || t).title = v; }) }),
   ];
 
   if (!f.endAt && (f.askFirst || (!s && !t.steps.length && !f.skipFirst))) {

@@ -32,7 +32,7 @@ The app is designed mainly around **starting**, because that's where things get 
 10. **Pick 3 for today.** Star ☆ up to three tasks; these come first on the Start card.
 11. **Celebrate.** Confetti, chimes, XP, a daily-goal ring, a streak, levels, and a **Done list** that shows what you started (🚀) and finished (✅ 🏁).
 
-**Editing:** open a task and tap **✏️ Edit** to change its name, or tap any step to change it. Enter (or tapping away) saves, and Escape cancels.
+**Editing:** to change a task's wording, open it and tap **✏️** (next to the star), tap a tag in Overview and choose **✏️ Edit**, or tap **✏️ Edit** under the heading in Focus. To change a step, tap it.
 
 Finished tasks leave your list. Tasks you decide not to do can be deleted ("Let it go"), with Undo.
 
