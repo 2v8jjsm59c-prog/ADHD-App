@@ -130,7 +130,12 @@ h2 small { text-transform: none; letter-spacing: 0; }
 
 /* Focus */
 .focus { text-align: center; padding-top: 8px; }
-.focus .parent { color: var(--muted); font-size: 14px; margin-bottom: 6px; }
+.focus .parent { color: var(--muted); font-size: 16px; margin-bottom: 6px; }
+.focus .taskbox { background: var(--surface); border-left: 6px solid var(--accent); border-radius: var(--radius); padding: 14px 16px; margin: 0 0 18px; text-align: left; }
+.focus .taskbox small { display: block; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+.focus .taskbox b { display: block; font-size: 28px; line-height: 1.2; word-wrap: break-word; }
+.focus .taskbox .linkbtn { margin: 6px 0 0; font-size: 14px; }
+.focus h2.question { display: block; font-size: 19px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--text); margin: 0 0 6px; }
 .focus .now { font-size: 26px; font-weight: 700; line-height: 1.25; margin: 0 0 18px; word-wrap: break-word; }
 .timer { position: relative; width: 230px; height: 230px; margin: 0 auto 18px; }
 .timer svg { transform: rotate(-90deg); }
@@ -1231,8 +1236,11 @@ function renderFocus() {
     const question = !s && t.steps.some(x => x.done) ? 'Nice. What\'s the next physical move?'
       : f.askFirst ? 'Smaller. What\'s the very first physical move?' : 'What\'s the very first physical move?';
     root.replaceChildren(
-      el('div', { class: 'parent', text: t.title }),
-      el('h1', { class: 'now', text: question }),
+      el('div', { class: 'taskbox' },
+        el('small', { text: 'Your task' }),
+        el('b', { text: t.title }),
+        el('button', { class: 'linkbtn', text: '✏️ Edit', onclick: () => editTask(t.id) })),
+      el('h2', { class: 'question', text: question }),
       el('p', { class: 'hint', text: 'Something you could do in 2 minutes without thinking. Smaller than feels sensible.' }),
       el('form', { class: 'add-step', onsubmit: e => { e.preventDefault(); goFirst(inp.value); } },
         inp, el('button', { class: 'btn', type: 'submit', text: '🚀 Go' })),
